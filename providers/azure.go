@@ -4,7 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/bitly/go-simplejson"
-	"github.com/bitly/oauth2_proxy/api"
+	"github.com/outlook/oauth2_proxy/api"
+	"github.com/outlook/oauth2_proxy/cookie"
 	"log"
 	"net/http"
 	"net/url"
@@ -40,7 +41,7 @@ func NewAzureProvider(p *ProviderData) *AzureProvider {
 	if p.ApprovalPrompt == "force" {
 		p.ApprovalPrompt = "consent"
 	}
-	log.Printf("Approval prompt: '%s'", p.ApprovalPrompt)
+	// log.Printf("Approval prompt: '%s'", p.ApprovalPrompt)
 
 	return &AzureProvider{ProviderData: p}
 }
@@ -195,6 +196,7 @@ func (p *AzureProvider) GetGroups(s *SessionState, f string) (string, error) {
 }
 
 func (p *AzureProvider) GetLoginURL(redirectURI, state string) string {
+	nonce, _ := cookie.Nonce()
 	var a url.URL
 	a = *p.LoginURL
 	params, _ := url.ParseQuery(a.RawQuery)
@@ -205,7 +207,7 @@ func (p *AzureProvider) GetLoginURL(redirectURI, state string) string {
 	params.Add("scope", p.Scope)
 	params.Add("state", state)
 	params.Set("prompt", p.ApprovalPrompt)
-	params.Set("nonce", "FIXME")
+	params.Set("nonce", nonce)
 	if p.ProtectedResource != nil && p.ProtectedResource.String() != "" {
 		params.Add("resource", p.ProtectedResource.String())
 	}
@@ -220,10 +222,10 @@ func (p *AzureProvider) SetGroupRestriction(groups []string) {
 	} else {
 		p.PermittedGroups = groups
 	}
-	log.Printf("Set group restrictions. Allowed groups are:")
-	for _, pGroup := range p.PermittedGroups {
-		log.Printf("\t'%s'", pGroup)
-	}
+	// log.Printf("Set group restrictions. Allowed groups are:")
+	// for _, pGroup := range p.PermittedGroups {
+	// 	log.Printf("\t'%s'", pGroup)
+	// }
 }
 
 func (p *AzureProvider) ValidateGroup(s *SessionState) bool {

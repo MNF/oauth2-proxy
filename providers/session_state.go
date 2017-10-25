@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bitly/oauth2_proxy/cookie"
+	"github.com/outlook/oauth2_proxy/cookie"
 )
 
 type SessionState struct {
@@ -63,24 +63,25 @@ func (s *SessionState) EncryptedString(c *cookie.Cipher) (string, error) {
 	if c == nil {
 		panic("error. missing cipher")
 	}
-	a := s.AccessToken
-	if a != "" {
-		a, err = c.Encrypt(a)
-		if err != nil {
-			return "", err
-		}
+	
+	//content := fmt.Sprintf("%s:%s:%d:%s:%s", s.userOrEmail(), s.AccessToken, s.ExpiresOn.Unix(), s.RefreshToken, s.Groups)
+	content := fmt.Sprintf("%s:%s:%d:%s:%s", s.userOrEmail(), "", s.ExpiresOn.Unix(), "", s.Groups)
+	content, err = c.Encrypt(content)
+	if err != nil {
+		return "", err
 	}
-	r := s.RefreshToken
-	if r != "" {
-		r, err = c.Encrypt(r)
-		if err != nil {
-			return "", err
-		}
-	}
-	return fmt.Sprintf("%s:%s:%d:%s:%s", s.userOrEmail(), a, s.ExpiresOn.Unix(), r, s.Groups), nil
+	return content, nil
 }
 
-func DecodeSessionState(v string, c *cookie.Cipher) (s *SessionState, err error) {
+func DecodeSessionState(state string, c *cookie.Cipher) (s *SessionState, err error) {
+	if c == nil {
+		panic("error. missing cipher")
+	}
+	v, err := c.Decrypt(state)
+	if err != nil {
+		return nil, err
+	}
+	
 	chunks := strings.Split(v, ":")
 	if len(chunks) == 1 {
 		if strings.Contains(chunks[0], "@") {
@@ -96,18 +97,8 @@ func DecodeSessionState(v string, c *cookie.Cipher) (s *SessionState, err error)
 	}
 
 	s = &SessionState{}
-	if c != nil && chunks[1] != "" {
-		s.AccessToken, err = c.Decrypt(chunks[1])
-		if err != nil {
-			return nil, err
-		}
-	}
-	if c != nil && chunks[3] != "" {
-		s.RefreshToken, err = c.Decrypt(chunks[3])
-		if err != nil {
-			return nil, err
-		}
-	}
+	s.AccessToken = chunks[1]
+	s.RefreshToken = chunks[3]
 	if u := chunks[0]; strings.Contains(u, "@") {
 		s.Email = u
 		s.User = strings.Split(u, "@")[0]

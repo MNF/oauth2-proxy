@@ -15,8 +15,8 @@ import (
 	"time"
 
 	"github.com/18F/hmacauth"
-	"github.com/bitly/oauth2_proxy/cookie"
-	"github.com/bitly/oauth2_proxy/providers"
+	"github.com/outlook/oauth2_proxy/cookie"
+	"github.com/outlook/oauth2_proxy/providers"
 )
 
 const SignatureHeader = "GAP-Signature"
@@ -133,7 +133,7 @@ func NewOAuthProxy(opts *Options, validator func(string) bool) *OAuthProxy {
 		switch u.Scheme {
 		case "http", "https":
 			u.Path = ""
-			log.Printf("mapping path %q => upstream %q", path, u)
+			// log.Printf("mapping path %q => upstream %q", path, u)
 			proxy := NewReverseProxy(u)
 			if !opts.PassHostHeader {
 				setProxyUpstreamHostHeader(proxy, u)
@@ -146,7 +146,7 @@ func NewOAuthProxy(opts *Options, validator func(string) bool) *OAuthProxy {
 			if u.Fragment != "" {
 				path = u.Fragment
 			}
-			log.Printf("mapping path %q => file system %q", path, u.Path)
+			// log.Printf("mapping path %q => file system %q", path, u.Path)
 			proxy := NewFileServer(path, u.Path)
 			serveMux.Handle(path, &UpstreamProxy{path, proxy, nil})
 		default:
@@ -158,19 +158,19 @@ func NewOAuthProxy(opts *Options, validator func(string) bool) *OAuthProxy {
 	}
 
 	redirectURL := opts.redirectURL
-	redirectURL.Path = fmt.Sprintf("%s/callback", opts.ProxyPrefix)
+	// redirectURL.Path = fmt.Sprintf("%s/callback", opts.ProxyPrefix)
 
-	log.Printf("OAuthProxy configured for %s Client ID: %s", opts.provider.Data().ProviderName, opts.ClientID)
-	domain := opts.CookieDomain
-	if domain == "" {
-		domain = "<default>"
-	}
-	refresh := "disabled"
-	if opts.CookieRefresh != time.Duration(0) {
-		refresh = fmt.Sprintf("after %s", opts.CookieRefresh)
-	}
+	// log.Printf("OAuthProxy configured for %s Client ID: %s", opts.provider.Data().ProviderName, opts.ClientID)
+	// domain := opts.CookieDomain
+	// if domain == "" {
+	// 	domain = "<default>"
+	// }
+	// refresh := "disabled"
+	// if opts.CookieRefresh != time.Duration(0) {
+	// 	refresh = fmt.Sprintf("after %s", opts.CookieRefresh)
+	// }
 
-	log.Printf("Cookie settings: name:%s secure(https):%v httponly:%v expiry:%s domain:%s refresh:%s", opts.CookieName, opts.CookieSecure, opts.CookieHttpOnly, opts.CookieExpire, domain, refresh)
+	// log.Printf("Cookie settings: name:%s secure(https):%v httponly:%v expiry:%s domain:%s refresh:%s", opts.CookieName, opts.CookieSecure, opts.CookieHttpOnly, opts.CookieExpire, domain, refresh)
 
 	var cipher *cookie.Cipher
 	if opts.PassAccessToken || (opts.CookieRefresh != time.Duration(0)) {
@@ -197,7 +197,7 @@ func NewOAuthProxy(opts *Options, validator func(string) bool) *OAuthProxy {
 		SignInPath:        fmt.Sprintf("%s/sign_in", opts.ProxyPrefix),
 		SignOutPath:       fmt.Sprintf("%s/sign_out", opts.ProxyPrefix),
 		OAuthStartPath:    fmt.Sprintf("%s/start", opts.ProxyPrefix),
-		OAuthCallbackPath: fmt.Sprintf("%s/callback", opts.ProxyPrefix),
+		OAuthCallbackPath: redirectURL.Path,
 		AuthOnlyPath:      fmt.Sprintf("%s/auth", opts.ProxyPrefix),
 
 		ProxyPrefix:        opts.ProxyPrefix,
@@ -412,7 +412,7 @@ func (p *OAuthProxy) ManualSignIn(rw http.ResponseWriter, req *http.Request) (st
 	}
 	// check auth
 	if p.HtpasswdFile.Validate(user, passwd) {
-		log.Printf("authenticated %q via HtpasswdFile", user)
+		//log.Printf("authenticated %q via HtpasswdFile", user)
 		return user, true
 	}
 	return "", false
@@ -426,7 +426,10 @@ func (p *OAuthProxy) GetRedirect(req *http.Request) (redirect string, err error)
 
 	redirect = req.Form.Get("rd")
 	if redirect == "" || !strings.HasPrefix(redirect, "/") || strings.HasPrefix(redirect, "//") {
-		redirect = "/"
+		redirect = req.Header.Get("X-Original-Uri")
+		if redirect == "" {
+			redirect = req.URL.RequestURI()
+		}
 	}
 
 	return
@@ -566,23 +569,22 @@ func (p *OAuthProxy) OAuthCallback(rw http.ResponseWriter, req *http.Request) {
 	if p.PassGroups && session.IDToken != "" {
 		session.Groups, err = p.provider.GetGroups(session, p.FilterGroups)
 		if err != nil {
-			p.ErrorPage(rw, 500, "Internal Error", "Internal Error")
+			p.ErrorPage(rw, 500, "Internal Error", err.Error())
 			return
 		}
 	}
 
-	redirect = req.Form.Get("state")
+	// redirect = req.Form.Get("state")
 	if !strings.HasPrefix(redirect, "/") || strings.HasPrefix(redirect, "//") {
 		redirect = "/"
 	}
 
 	// set cookie, or deny
 	if p.Validator(session.Email) && p.provider.ValidateGroup(session) {
-		log.Printf("%s authentication complete %s", remoteAddr, session)
 		err := p.SaveSession(rw, req, session)
 		if err != nil {
-			log.Printf("%s %s", remoteAddr, err)
-			p.ErrorPage(rw, 500, "Internal Error", "Internal Error")
+			log.Printf("Cookie Validator Error %s %s", remoteAddr, err)
+			p.ErrorPage(rw, 500, "Internal Error", err.Error())
 			return
 		}
 		http.Redirect(rw, req, redirect, 302)
@@ -627,12 +629,12 @@ func (p *OAuthProxy) Authenticate(rw http.ResponseWriter, req *http.Request) int
 	}
 
 	if session != nil && sessionAge > p.CookieRefresh && p.CookieRefresh != time.Duration(0) {
-		log.Printf("%s refreshing %s old session cookie for %s (refresh after %s)", remoteAddr, sessionAge, session, p.CookieRefresh)
+		// log.Printf("%s refreshing %s old session cookie for %s (refresh after %s)", remoteAddr, sessionAge, session, p.CookieRefresh)
 		saveSession = true
 	}
 
 	if ok, err := p.provider.RefreshSessionIfNeeded(session); err != nil {
-		log.Printf("%s removing session. error refreshing access token %s %s", remoteAddr, err, session)
+		// log.Printf("%s removing session. error refreshing access token %s %s", remoteAddr, err, session)
 		clearSession = true
 		session = nil
 	} else if ok {
@@ -641,7 +643,7 @@ func (p *OAuthProxy) Authenticate(rw http.ResponseWriter, req *http.Request) int
 	}
 
 	if session != nil && session.IsExpired() {
-		log.Printf("%s removing session. token expired %s", remoteAddr, session)
+		// log.Printf("%s removing session. token expired %s", remoteAddr, session)
 		session = nil
 		saveSession = false
 		clearSession = true
@@ -649,7 +651,7 @@ func (p *OAuthProxy) Authenticate(rw http.ResponseWriter, req *http.Request) int
 
 	if saveSession && !revalidated && session != nil && session.AccessToken != "" {
 		if !p.provider.ValidateSessionState(session) {
-			log.Printf("%s removing session. error validating %s", remoteAddr, session)
+			// log.Printf("%s removing session. error validating %s", remoteAddr, session)
 			saveSession = false
 			session = nil
 			clearSession = true
@@ -657,7 +659,7 @@ func (p *OAuthProxy) Authenticate(rw http.ResponseWriter, req *http.Request) int
 	}
 
 	if session != nil && session.Email != "" && !p.Validator(session.Email) {
-		log.Printf("%s Permission Denied: removing session %s", remoteAddr, session)
+		// log.Printf("%s Permission Denied: removing session %s", remoteAddr, session)
 		session = nil
 		saveSession = false
 		clearSession = true
@@ -666,7 +668,7 @@ func (p *OAuthProxy) Authenticate(rw http.ResponseWriter, req *http.Request) int
 	if saveSession && session != nil {
 		err := p.SaveSession(rw, req, session)
 		if err != nil {
-			log.Printf("%s %s", remoteAddr, err)
+			log.Printf("Saving Session Error %s %s", remoteAddr, err)
 			return http.StatusInternalServerError
 		}
 	}
@@ -678,7 +680,7 @@ func (p *OAuthProxy) Authenticate(rw http.ResponseWriter, req *http.Request) int
 	if session == nil {
 		session, err = p.CheckBasicAuth(req)
 		if err != nil {
-			log.Printf("%s %s", remoteAddr, err)
+			log.Printf("Checking Basic Auth Error %s %s", remoteAddr, err)
 		}
 	}
 
@@ -743,7 +745,7 @@ func (p *OAuthProxy) CheckBasicAuth(req *http.Request) (*providers.SessionState,
 		return nil, fmt.Errorf("invalid format %s", b)
 	}
 	if p.HtpasswdFile.Validate(pair[0], pair[1]) {
-		log.Printf("authenticated %q via basic auth", pair[0])
+		// log.Printf("authenticated %q via basic auth", pair[0])
 		return &providers.SessionState{User: pair[0]}, nil
 	}
 	return nil, fmt.Errorf("%s not in HtpasswdFile", pair[0])

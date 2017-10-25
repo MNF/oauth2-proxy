@@ -102,7 +102,7 @@ func main() {
 
 	err := opts.Validate()
 	if err != nil {
-		log.Printf("%s", err)
+		log.Printf("Validate Error %s", err)
 		os.Exit(1)
 	}
 	validator := NewValidator(opts.EmailDomains, opts.AuthenticatedEmailsFile)
