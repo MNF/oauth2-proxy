@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/outlook/oauth2_proxy/cookie"
+	"oauth2_proxy/cookie"
 )
 
 type SessionState struct {
@@ -63,7 +63,7 @@ func (s *SessionState) EncryptedString(c *cookie.Cipher) (string, error) {
 	if c == nil {
 		panic("error. missing cipher")
 	}
-	
+
 	//content := fmt.Sprintf("%s:%s:%d:%s:%s", s.userOrEmail(), s.AccessToken, s.ExpiresOn.Unix(), s.RefreshToken, s.Groups)
 	content := fmt.Sprintf("%s:%s:%d:%s:%s", s.userOrEmail(), "", s.ExpiresOn.Unix(), "", s.Groups)
 	content, err = c.Encrypt(content)
@@ -81,7 +81,7 @@ func DecodeSessionState(state string, c *cookie.Cipher) (s *SessionState, err er
 	if err != nil {
 		return nil, err
 	}
-	
+
 	chunks := strings.Split(v, ":")
 	if len(chunks) == 1 {
 		if strings.Contains(chunks[0], "@") {

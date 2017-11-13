@@ -1,7 +1,7 @@
 package providers
 
 import (
-	"github.com/outlook/oauth2_proxy/cookie"
+	"oauth2_proxy/cookie"
 )
 
 type Provider interface {

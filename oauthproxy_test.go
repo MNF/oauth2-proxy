@@ -15,8 +15,9 @@ import (
 	"testing"
 	"time"
 
+	"oauth2_proxy/providers"
+
 	"github.com/18F/hmacauth"
-	"github.com/outlook/oauth2_proxy/providers"
 	"github.com/bmizerany/assert"
 )
 

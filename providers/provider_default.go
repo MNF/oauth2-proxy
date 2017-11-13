@@ -9,8 +9,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-
-	"github.com/outlook/oauth2_proxy/cookie"
+	"oauth2_proxy/cookie"
 )
 
 func (p *ProviderData) Redeem(redirectURL, code string) (s *SessionState, err error) {

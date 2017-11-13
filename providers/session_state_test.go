@@ -1,11 +1,11 @@
 package providers
 
 import (
+	"oauth2_proxy/cookie"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/outlook/oauth2_proxy/cookie"
 	"github.com/bmizerany/assert"
 )
 

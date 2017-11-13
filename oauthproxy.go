@@ -10,13 +10,14 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"oauth2_proxy/cookie"
 	"regexp"
 	"strings"
 	"time"
 
+	"oauth2_proxy/providers"
+
 	"github.com/18F/hmacauth"
-	"github.com/outlook/oauth2_proxy/cookie"
-	"github.com/outlook/oauth2_proxy/providers"
 )
 
 const SignatureHeader = "GAP-Signature"
