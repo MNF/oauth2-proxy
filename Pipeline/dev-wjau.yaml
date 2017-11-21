@@ -1,0 +1,68 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: [variables('KUBE_BOT_IMAGE_NAME')]
+  namespace: hotels
+spec:
+  replicas: 2
+  revisionHistoryLimit: 2  
+  template:
+    metadata:
+      labels:
+        app: [variables('KUBE_BOT_IMAGE_NAME')]
+    spec:
+      restartPolicy: Always
+      dnsPolicy: ClusterFirst
+      containers:
+      - name: [variables('KUBE_BOT_IMAGE_NAME')]
+        image: "[variables('KUBE_BOT_CONTAINER_REGISTRY')]/[variables('KUBE_BOT_CONTAINER_REPO')]/packagesoauthservice:[variables('KUBE_BOT_IMAGE_TAG')]"
+        imagePullPolicy: IfNotPresent
+        args:
+          - "-upstream=http://packagescampaignmanager-web.hotels"
+        resources:
+          requests:
+            memory: "50Mi"
+            cpu: "100m"
+          limits:
+            memory: "5120Mi"
+            cpu: "1.5"
+        ports:
+          - containerPort: 5000
+      imagePullSecrets:
+      - name: registrykey
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: [variables('KUBE_BOT_IMAGE_NAME')]
+  namespace: hotels
+spec:
+  selector:
+    app: [variables('KUBE_BOT_IMAGE_NAME')]
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 5000
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    ingress.kubernetes.io/rewrite-target: /
+  name: [variables('KUBE_BOT_IMAGE_NAME')]
+  namespace: hotels
+spec:
+  tls:
+  - hosts:
+    - devservices.webjet.com.au
+    secretName: webjet-tls-ssl 
+  rules:
+  - host: devservices.webjet.com.au
+    http:
+      paths:
+      - path: /web/admin/
+        backend:
+          serviceName: [variables('KUBE_BOT_IMAGE_NAME')]
+          servicePort: 80
+

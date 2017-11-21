@@ -1,0 +1,62 @@
+node('agent-debian-dind') {
+
+    withCredentials([string(credentialsId: '9bfddad9-c9b4-4f57-b6cc-283d0997c5b5', variable: 'CONTAINERREGISTRY'),  string(credentialsId: 'ac3722c7-104f-4835-8438-70042e18a846', variable: 'CONTAINERREGISTRYUSERNAME'), string(credentialsId: '399bf241-b44f-4977-84c1-551792f726df', variable: 'CONTAINERREGISTRYPASSWORD')]) { 
+    
+    stage('checkout') {
+        checkout([$class: 'GitSCM', branches: [[name: '*/pipeline']], doGenerateSubmoduleConfigurations: false, extensions: [], submoduleCfg: [], userRemoteConfigs: [[credentialsId: 'eacb342c-39d8-4fc0-948d-ed060565f311', url: 'https://github.com/Webjet/oauth2_proxy.git']]])
+	}
+
+    stage('loging into container registry') {
+        sh '''
+            docker login -u $CONTAINERREGISTRYUSERNAME -p $CONTAINERREGISTRYPASSWORD $CONTAINERREGISTRY
+        '''
+	}
+
+    stage('Build Source - Run Tests') {
+        sh '''
+            cd $WORKSPACE/Packages-CampaignManager/Packages-CampaignManager/Packages-CampaignManager.Web
+            docker build  -t "packagesoauthservice_src":$BUILD_NUMBER  .
+        '''
+	}
+
+    stage('Build Production Image') {
+        sh '''
+            cd $WORKSPACE/Pipeline 
+            docker build --build-arg IMAGE_NAME="packagesoauthservice_src" --build-arg IMAGE_VERSION=${BUILD_NUMBER} -t "containerregistrydev.azurecr.io/webjet/packagesoauthservice:${BUILD_NUMBER}"  .
+        '''
+	}
+
+    stage('Push Production Image') {
+        sh '''
+            docker push containerregistrydev.azurecr.io/webjet/packagesoauthservice:${BUILD_NUMBER}
+        '''
+	}
+
+    stage('deploy-kubernetes-develop-wjau') {
+        sh '''
+           curl -X POST http://kubebot.default/deploy/dev/hotels/packagesoauthservice/${BUILD_NUMBER} --data-binary "@$WORKSPACE/Pipeline/dev-wjau.yaml" -H 'Content-Type: application/yaml'
+        '''
+	}
+
+    stage('deploy-kubernetes-develop-wjnz') {
+        sh '''
+           #curl -X POST http://kubebot.default/deploy/dev/hotels/packagesoauthservice/${BUILD_NUMBER} --data-binary "@$WORKSPACE/Pipeline/dev-wjnz.yaml" -H 'Content-Type: application/yaml'
+        '''
+	}
+
+   stage('deploy-kubernetes-prod-wjau') {
+        sh '''
+           #curl -X POST http://kubebot.default/deploy/prod/hotels/packagesoauthservice/${BUILD_NUMBER} --data-binary "@$WORKSPACE/Pipeline/prod-wjau.yaml" -H 'Content-Type: application/yaml'
+        '''
+	}
+
+    stage('deploy-kubernetes-prod-wjnz') {
+        sh '''
+           #curl -X POST http://kubebot.default/deploy/prod/hotels/packagesoauthservice/${BUILD_NUMBER} --data-binary "@$WORKSPACE/Pipeline/prod-wjnz.yaml" -H 'Content-Type: application/yaml'
+        '''
+	}
+
+
+
+} 
+}             
