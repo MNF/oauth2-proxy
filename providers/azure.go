@@ -9,8 +9,9 @@ import (
 	"oauth2_proxy/cookie"
 	"strings"
 
+	"oauth2_proxy/api"
+
 	"github.com/bitly/go-simplejson"
-	"github.com/outlook/oauth2_proxy/api"
 )
 
 type AzureProvider struct {
@@ -107,7 +108,7 @@ func (p *AzureProvider) GetEmailAddress(s *SessionState) (string, error) {
 	json, err := api.Request(req)
 
 	if err != nil {
-		return "", err
+		return "", nil
 	}
 
 	email, err = getEmailFromJSON(json)
@@ -164,14 +165,14 @@ func (p *AzureProvider) GetGroups(s *SessionState, f string) (string, error) {
 		req, err := http.NewRequest("GET", requestUrl, nil)
 
 		if err != nil {
-			return "", err
+			return "", nil
 		}
 		req.Header = getAzureHeader(s.AccessToken)
 		req.Header.Add("Content-Type", "application/json")
 
 		groupData, err := api.Request(req)
 		if err != nil {
-			return "", err
+			return "", nil
 		}
 
 		for _, groupInfo := range groupData.Get("value").MustArray() {

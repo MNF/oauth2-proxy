@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/outlook/oauth2_proxy/api"
+	"oauth2_proxy/api"
 )
 
 type FacebookProvider struct {

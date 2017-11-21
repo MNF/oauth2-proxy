@@ -47,7 +47,7 @@ func (p *ProviderData) Redeem(redirectURL, code string) (s *SessionState, err er
 	}
 	if c_err != nil {
 		log.Printf("headers from failed redemption are %s", resp.Header)
-		log.Printf("body from failed redemption is %s", body)
+		//log.Printf("body from failed redemption is %s", body)
 		return nil, c_err
 	}
 

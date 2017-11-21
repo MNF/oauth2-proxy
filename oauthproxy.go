@@ -626,7 +626,7 @@ func (p *OAuthProxy) Authenticate(rw http.ResponseWriter, req *http.Request) int
 
 	session, sessionAge, err := p.LoadCookiedSession(req)
 	if err != nil {
-		log.Printf("%s %s", remoteAddr, err)
+		//log.Printf("%s %s", remoteAddr, err)
 	}
 
 	if session != nil && sessionAge > p.CookieRefresh && p.CookieRefresh != time.Duration(0) {

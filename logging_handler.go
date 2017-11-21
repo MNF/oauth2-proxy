@@ -45,9 +45,9 @@ func (l *responseLogger) Write(b []byte) (int, error) {
 		l.status = http.StatusOK
 	}
 	l.ExtractGAPMetadata()
-	size, err := l.w.Write(b)
+	size, _ := l.w.Write(b)
 	l.size += size
-	return size, err
+	return size, nil
 }
 
 func (l *responseLogger) WriteHeader(s int) {
