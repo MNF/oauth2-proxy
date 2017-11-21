@@ -61,7 +61,7 @@ func validateToken(p Provider, access_token string, header http.Header) bool {
 		return false
 	}
 
-	body, _ := ioutil.ReadAll(resp.Body)
+	//body, _ := ioutil.ReadAll(resp.Body)
 	resp.Body.Close()
 	/// log.Printf("%d GET %s %s", resp.StatusCode, stripToken(endpoint), body)
 
