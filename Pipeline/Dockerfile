@@ -10,6 +10,7 @@ RUN apk update && apk upgrade && \
     apk add --no-cache bash git openssh
 
 WORKDIR /root/
+RUN MKRID /root/config
 COPY --from=builder /go/src/oauth2_proxy/oauth2_proxy .
 #ENTRYPOINT []
 ENTRYPOINT ["/root/oauth2_proxy"]
