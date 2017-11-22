@@ -18,23 +18,23 @@ spec:
         image: "[variables('KUBE_BOT_CONTAINER_REGISTRY')]/[variables('KUBE_BOT_CONTAINER_REPO')]/packagesoauthservice:[variables('KUBE_BOT_IMAGE_TAG')]"
         imagePullPolicy: IfNotPresent
         args:
+          - "-config=/etc/config/oauth2_proxy.cfg"
           - "-upstream=http://packagescampaignmanager-web.hotels"
           - "-provider=azure"
           - "-cookie-name=adminauth"
           - "-cookie-secure=true"
           - "-cookie-expire=168h0m"
           - "-cookie-refresh=2m"
-          - "-cookie-secret=Mx9S631sW6tq0ipz1R2mwFkKAdpDzX0L"
           - "-cookie-domain=devservices.webjet.com.au"
           - "-email-domain=*"
-          - "-client-id=3aa578e2-6af3-4975-8183-0ea3a4c68a59"
-          - "-client-secret=PvP+GLSTp5vqQRrPmhhRtHo+61pYl5K72T63rASJ5p8="
           - "-http-address=http://0.0.0.0:4180"
           - "-azure-tenant=5de0e68c-0afd-4a67-b089-31f168aa4ca0"
           - "-pass-groups=true"
           - "-approval-prompt="
           - "-skip-provider-button=true"
           - "-redirect-url=https://devservices.webjet.com.au/oauth2/callback"
+          - "-pass-user-headers=true"
+          - "-pass-groups=true"
         resources:
           requests:
             memory: "50Mi"
@@ -46,7 +46,7 @@ spec:
           - containerPort: 4180
         volumeMounts:
         - name: oauthvolumemount
-          mountPath: /root/config
+          mountPath: /etc/config
       volumes:
       - name: oauthvolumemount
         secret:
