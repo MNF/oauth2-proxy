@@ -43,7 +43,7 @@ spec:
             memory: "5120Mi"
             cpu: "1.5"
         ports:
-          - containerPort: 5000
+          - containerPort: 4180
       imagePullSecrets:
       - name: registrykey
 ---
@@ -58,7 +58,7 @@ spec:
   ports:
     - protocol: TCP
       port: 80
-      targetPort: 5000
+      targetPort: 4180
 ---
 apiVersion: extensions/v1beta1
 kind: Ingress
