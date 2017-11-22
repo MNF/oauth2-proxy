@@ -18,7 +18,7 @@ spec:
         image: "[variables('KUBE_BOT_CONTAINER_REGISTRY')]/[variables('KUBE_BOT_CONTAINER_REPO')]/packagesoauthservice:[variables('KUBE_BOT_IMAGE_TAG')]"
         imagePullPolicy: IfNotPresent
         args:
-          - "-upstream=http://packagescampaignmanager-web.hotels/serenityservice/"
+          - "-upstream=http://packagescampaignmanager-web.hotels"
           - "-provider=azure"
           - "-cookie-name=adminauth"
           - "-cookie-secure=true"
