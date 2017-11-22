@@ -14,7 +14,7 @@ node('agent-debian-dind') {
 
     stage('Build Source - Run Tests') {
         sh '''
-            cd $WORKSPACE/Packages-CampaignManager/Packages-CampaignManager/Packages-CampaignManager.Web
+            cd $WORKSPACE
             docker build  -t "packagesoauthservice_src":$BUILD_NUMBER  .
         '''
 	}
