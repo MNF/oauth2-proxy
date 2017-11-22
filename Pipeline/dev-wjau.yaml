@@ -87,7 +87,7 @@ kind: Ingress
 metadata:
   annotations:
     kubernetes.io/ingress.class: "nginx"
-  name: [variables('KUBE_BOT_IMAGE_NAME')]
+  name: [variables('KUBE_BOT_IMAGE_NAME')]-oauth
   namespace: hotels
 spec:
   tls:
