@@ -18,7 +18,7 @@ spec:
         image: "[variables('KUBE_BOT_CONTAINER_REGISTRY')]/[variables('KUBE_BOT_CONTAINER_REPO')]/oauthservice:[variables('KUBE_BOT_IMAGE_TAG')]"
         imagePullPolicy: IfNotPresent
         args:
-          - "-config=/etc/config/oauth2_proxy.cfg"
+          - "config=/etc/config/oauth2_proxy.cfg"
           - "upstream=http://packagescampaignmanager-web.hotels/admin/web/hotels/serenityservice/"
           - "provider=azure"
           - "cookie-name=adminauth"
@@ -33,8 +33,8 @@ spec:
           - "approval-prompt=""
           - "skip-provider-button=true"
           - "redirect-url=https://devservices.webjet.com.au/oauth2/callback"
-          - "-pass-user-headers=true"
-          - "-pass-groups=true"
+          - "pass-user-headers=true"
+          - "pass-groups=true"
         resources:
           requests:
             memory: "50Mi"
@@ -84,7 +84,7 @@ spec:
   - host: devservices.webjet.com.au
     http:
       paths:
-      - path: /admin/
+      - path: /admin
         backend:
           serviceName: [variables('KUBE_BOT_IMAGE_NAME')]
           servicePort: 80
