@@ -1,6 +1,7 @@
 package providers
 
 import (
+	"log"
 	"oauth2_proxy/cookie"
 	"strings"
 	"testing"
@@ -26,44 +27,20 @@ func TestSessionStateSerialization(t *testing.T) {
 	}
 	encoded, err := s.EncodeSessionState(c)
 	assert.Equal(t, nil, err)
-	assert.Equal(t, 4, strings.Count(encoded, ":"))
-
+	log.Print(encoded)
+	assert.Equal(t, 1, strings.Count(encoded, "=="))
 	ss, err := DecodeSessionState(encoded, c)
 	t.Logf("%#v", ss)
 	assert.Equal(t, nil, err)
 	assert.Equal(t, s.Email, ss.Email)
-	assert.Equal(t, s.AccessToken, ss.AccessToken)
 	assert.Equal(t, s.ExpiresOn.Unix(), ss.ExpiresOn.Unix())
-	assert.Equal(t, s.RefreshToken, ss.RefreshToken)
 
 	// ensure a different cipher can't decode properly (ie: it gets gibberish)
 	ss, err = DecodeSessionState(encoded, c2)
 	t.Logf("%#v", ss)
 	assert.Equal(t, nil, err)
-	assert.Equal(t, s.Email, ss.Email)
-	assert.Equal(t, s.ExpiresOn.Unix(), ss.ExpiresOn.Unix())
-	assert.NotEqual(t, s.AccessToken, ss.AccessToken)
-	assert.NotEqual(t, s.RefreshToken, ss.RefreshToken)
-}
-
-func TestSessionStateSerializationNoCipher(t *testing.T) {
-
-	s := &SessionState{
-		Email:        "user@domain.com",
-		AccessToken:  "token1234",
-		ExpiresOn:    time.Now().Add(time.Duration(1) * time.Hour),
-		RefreshToken: "refresh4321",
-	}
-	encoded, err := s.EncodeSessionState(nil)
-	assert.Equal(t, nil, err)
-	assert.Equal(t, s.Email, encoded)
-
-	// only email should have been serialized
-	ss, err := DecodeSessionState(encoded, nil)
-	assert.Equal(t, nil, err)
-	assert.Equal(t, s.Email, ss.Email)
-	assert.Equal(t, "", ss.AccessToken)
-	assert.Equal(t, "", ss.RefreshToken)
+	assert.NotEqual(t, s.Email, ss.Email)
+	assert.NotEqual(t, s.ExpiresOn.Unix(), ss.ExpiresOn.Unix())
 }
 
 func TestSessionStateUserOrEmail(t *testing.T) {

@@ -1,12 +1,11 @@
 package providers
 
 import (
-	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
 
-	"github.com/outlook/oauth2_proxy/api"
+	"oauth2_proxy/api"
 )
 
 // stripToken is a helper function to obfuscate "access_token"
@@ -58,17 +57,17 @@ func validateToken(p Provider, access_token string, header http.Header) bool {
 	resp, err := api.RequestUnparsedResponse(endpoint, header)
 	if err != nil {
 		// log.Printf("GET %s", stripToken(endpoint))
-		log.Printf("token validation request failed: %s", err)
+		//log.Printf("token validation request failed: %s", err)
 		return false
 	}
 
-	body, _ := ioutil.ReadAll(resp.Body)
-	resp.Body.Close()
-	// log.Printf("%d GET %s %s", resp.StatusCode, stripToken(endpoint), body)
+	//body, _ := ioutil.ReadAll(resp.Body)
+	//resp.Body.Close()
+	/// log.Printf("%d GET %s %s", resp.StatusCode, stripToken(endpoint), body)
 
 	if resp.StatusCode == 200 {
 		return true
 	}
-	log.Printf("token validation request failed: status %d - %s", resp.StatusCode, body)
+	log.Printf("token validation request failed: status %d - %s", resp.StatusCode, endpoint)
 	return false
 }

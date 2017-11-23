@@ -9,8 +9,9 @@ import (
 	"oauth2_proxy/cookie"
 	"strings"
 
+	"oauth2_proxy/api"
+
 	"github.com/bitly/go-simplejson"
-	"github.com/outlook/oauth2_proxy/api"
 )
 
 type AzureProvider struct {
