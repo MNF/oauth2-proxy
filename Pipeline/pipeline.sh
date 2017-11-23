@@ -4,7 +4,7 @@
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 WORKSPACE="$(dirname "$DIR")"
 
-DOCKERIMAGE="containerregistrydev.azurecr.io/webjet/packagesoauthservice"
+DOCKERIMAGE="containerregistrydev.azurecr.io/webjet/oauthservice"
 DOCKERIMAGETAG="LOCAL"
 
 function check_error_exit
@@ -18,7 +18,7 @@ function check_error_exit
 
 }
 
-PROJECTNAME="packagesoauthservice"
+PROJECTNAME="oauthservice"
 IMAGETAG="02"
 
 echo "loging into container registry"
@@ -43,6 +43,6 @@ check_error_exit
 # check_error_exit
 
 # echo "deploy to cluster in dev" 
-# curl -X POST http://localhost:10010/deploy/dev/hotels/${PROJECTNAME}/${IMAGETAG} --data-binary "@$WORKSPACE/pipeline/dev-wjau.yaml" -H 'Content-Type: application/yaml'
+# curl -X POST http://localhost:10010/deploy/dev/oauth/${PROJECTNAME}/${IMAGETAG} --data-binary "@$WORKSPACE/pipeline/dev-wjau.yaml" -H 'Content-Type: application/yaml'
 # check_error_exit
 

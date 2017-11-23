@@ -2,7 +2,7 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: [variables('KUBE_BOT_IMAGE_NAME')]
-  namespace: hotels
+  namespace: oauth
 spec:
   replicas: 2
   revisionHistoryLimit: 2  
@@ -15,24 +15,24 @@ spec:
       dnsPolicy: ClusterFirst
       containers:
       - name: [variables('KUBE_BOT_IMAGE_NAME')]
-        image: "[variables('KUBE_BOT_CONTAINER_REGISTRY')]/[variables('KUBE_BOT_CONTAINER_REPO')]/packagesoauthservice:[variables('KUBE_BOT_IMAGE_TAG')]"
+        image: "[variables('KUBE_BOT_CONTAINER_REGISTRY')]/[variables('KUBE_BOT_CONTAINER_REPO')]/oauthservice:[variables('KUBE_BOT_IMAGE_TAG')]"
         imagePullPolicy: IfNotPresent
         args:
           - "-config=/etc/config/oauth2_proxy.cfg"
-          - "-upstream=http://packagescampaignmanager-web.hotels"
-          - "-provider=azure"
-          - "-cookie-name=adminauth"
-          - "-cookie-secure=true"
-          - "-cookie-expire=168h0m"
-          - "-cookie-refresh=2m"
-          - "-cookie-domain=devservices.webjet.com.au"
-          - "-email-domain=*"
-          - "-http-address=http://0.0.0.0:4180"
-          - "-azure-tenant=5de0e68c-0afd-4a67-b089-31f168aa4ca0"
-          - "-pass-groups=true"
-          - "-approval-prompt="
-          - "-skip-provider-button=true"
-          - "-redirect-url=https://devservices.webjet.com.au/oauth2/callback"
+          - "upstream=http://packagescampaignmanager-web.hotels/admin/web/hotels/serenityservice/"
+          - "provider=azure"
+          - "cookie-name=adminauth"
+          - "cookie-secure=true"
+          - "cookie-expire=168h0m"
+          - "cookie-refresh=10m"
+          - "cookie-domain=devservices.webjet.com.au"
+          - "email-domain=*""
+          - "http-address=http://0.0.0.0:4180"
+          - "azure-tenant=5de0e68c-0afd-4a67-b089-31f168aa4ca0"
+          - "pass-groups=true"
+          - "approval-prompt=""
+          - "skip-provider-button=true"
+          - "redirect-url=https://devservices.webjet.com.au/oauth2/callback"
           - "-pass-user-headers=true"
           - "-pass-groups=true"
         resources:
@@ -58,7 +58,7 @@ kind: Service
 apiVersion: v1
 metadata:
   name: [variables('KUBE_BOT_IMAGE_NAME')]
-  namespace: hotels
+  namespace: oauth
 spec:
   selector:
     app: [variables('KUBE_BOT_IMAGE_NAME')]
@@ -74,7 +74,7 @@ metadata:
     kubernetes.io/ingress.class: "nginx"
     ingress.kubernetes.io/rewrite-target: /
   name: [variables('KUBE_BOT_IMAGE_NAME')]
-  namespace: hotels
+  namespace: oauth
 spec:
   tls:
   - hosts:
@@ -84,7 +84,7 @@ spec:
   - host: devservices.webjet.com.au
     http:
       paths:
-      - path: /web/admin/
+      - path: /admin/
         backend:
           serviceName: [variables('KUBE_BOT_IMAGE_NAME')]
           servicePort: 80
@@ -95,7 +95,7 @@ metadata:
   annotations:
     kubernetes.io/ingress.class: "nginx"
   name: [variables('KUBE_BOT_IMAGE_NAME')]-oauth
-  namespace: hotels
+  namespace: oauth
 spec:
   tls:
   - hosts:
