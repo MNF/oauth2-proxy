@@ -108,7 +108,7 @@ func (p *AzureProvider) GetEmailAddress(s *SessionState) (string, error) {
 	json, err := api.Request(req)
 
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 
 	email, err = getEmailFromJSON(json)
@@ -165,14 +165,14 @@ func (p *AzureProvider) GetGroups(s *SessionState, f string) (string, error) {
 		req, err := http.NewRequest("GET", requestUrl, nil)
 
 		if err != nil {
-			return "", nil
+			return "", err
 		}
 		req.Header = getAzureHeader(s.AccessToken)
 		req.Header.Add("Content-Type", "application/json")
 
 		groupData, err := api.Request(req)
 		if err != nil {
-			return "", nil
+			return "", err
 		}
 
 		for _, groupInfo := range groupData.Get("value").MustArray() {

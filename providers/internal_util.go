@@ -62,7 +62,7 @@ func validateToken(p Provider, access_token string, header http.Header) bool {
 	}
 
 	//body, _ := ioutil.ReadAll(resp.Body)
-	resp.Body.Close()
+	//resp.Body.Close()
 	/// log.Printf("%d GET %s %s", resp.StatusCode, stripToken(endpoint), body)
 
 	if resp.StatusCode == 200 {

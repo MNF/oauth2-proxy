@@ -733,8 +733,6 @@ func NewSignatureTest() *SignatureTest {
 	opts.ClientSecret = "client secret"
 	opts.EmailDomains = []string{"acm.org"}
 
-	//c, _ := cookie.NewCipher([]byte(opts.CookieSecret))
-
 	authenticator := &SignatureAuthenticator{}
 	upstream := httptest.NewServer(
 		http.HandlerFunc(authenticator.Authenticate))
