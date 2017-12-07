@@ -24,7 +24,7 @@ spec:
           - "-cookie-name=adminauth"
           - "-cookie-secure=true"
           - "-cookie-expire=8h0m"
-          - "-cookie-refresh=8h0m"
+          - "-cookie-refresh=4h0m"
           - "-cookie-domain=services.webjet.com.au"
           - "-email-domain=*"
           - "-http-address=http://0.0.0.0:4180"
