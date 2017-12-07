@@ -41,7 +41,7 @@ node('agent-debian-dind') {
 
    stage('deploy-kubernetes-prod-wjau') {
         sh '''
-           #curl -X POST http://kubebot.default/deploy/prod/oauth/oauthservice/${BUILD_NUMBER} --data-binary "@$WORKSPACE/Pipeline/prod-wjau.yaml" -H 'Content-Type: application/yaml'
+           curl -X POST http://kubebot.default/deploy/prod/oauth/oauthservice/${BUILD_NUMBER} --data-binary "@$WORKSPACE/Pipeline/prod-wjau.yaml" -H 'Content-Type: application/yaml'
         '''
 	}
 
