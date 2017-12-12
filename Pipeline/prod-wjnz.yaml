@@ -19,21 +19,21 @@ spec:
         imagePullPolicy: IfNotPresent
         args:
           - "-config=/etc/config/oauth2_proxy.cfg"
-          - "-upstream=http://packagescampaignmanager-web.hotels/admin/web/packages/serenityservice/"
-          - "-upstream=http://itinerarylist-wjau.serviceportal/web/admin/itinerarylist/serenityservice/"           
+          # - "-upstream=http://packagescampaignmanager-web.hotels/admin/web/packages/serenityservice/"
+          - "-upstream=http://itinerarylist-wjnz.serviceportal/web/admin/itinerarylist/serenityservice/" 
           - "-provider=azure"
           - "-cookie-name=adminauth"
           - "-cookie-secure=true"
           - "-cookie-expire=8h0m"
           - "-cookie-refresh=4h0m"
-          - "-cookie-domain=services.webjet.com.au"
+          - "-cookie-domain=services.webjet.co.nz"
           - "-email-domain=*"
           - "-http-address=http://0.0.0.0:4180"
           - "-azure-tenant=5de0e68c-0afd-4a67-b089-31f168aa4ca0"
           - "-pass-groups=true"
           - "-approval-prompt="
           - "-skip-provider-button=true"
-          - "-redirect-url=https://services.webjet.com.au/oauth2/callback"
+          - "-redirect-url=https://services.webjet.co.nz/oauth2/callback"
           - "-pass-user-headers=true"
           - "-pass-groups=true"
         resources:
@@ -78,10 +78,10 @@ metadata:
 spec:
   tls:
   - hosts:
-    - services.webjet.com.au
+    - services.webjet.co.nz
     secretName: webjet-tls-ssl 
   rules:
-  - host: services.webjet.com.au
+  - host: services.webjet.co.nz
     http:
       paths:
       - path: /admin
@@ -99,14 +99,34 @@ metadata:
 spec:
   tls:
   - hosts:
-    - services.webjet.com.au
+    - services.webjet.co.nz
     secretName: webjet-tls-ssl 
   rules:
-  - host: services.webjet.com.au
+  - host: services.webjet.co.nz
     http:
       paths:
       - path: /oauth2
         backend:
           serviceName: [variables('KUBE_BOT_IMAGE_NAME')]
           servicePort: 80
-
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+  name: [variables('KUBE_BOT_IMAGE_NAME')]-web
+  namespace: oauth
+spec:
+  tls:
+  - hosts:
+    - services.webjet.co.nz
+    secretName: webjet-tls-ssl 
+  rules:
+  - host: services.webjet.co.nz
+    http:
+      paths:
+      - path: /web
+        backend:
+          serviceName: [variables('KUBE_BOT_IMAGE_NAME')]
+          servicePort: 80
