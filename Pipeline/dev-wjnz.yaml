@@ -20,7 +20,7 @@ spec:
         args:
           - "-config=/etc/config/oauth2_proxy.cfg"
           # - "-upstream=http://packagescampaignmanager-web.hotels/admin/web/packages/serenityservice/" 
-          - "-upstream=http://itinerarylist-wjnz.serviceportal/web/admin/itinerarylist/" 
+          - "-upstream=http://itinerarylist-wjnz.serviceportal/admin/web/itinerarylist/" 
           - "-provider=azure"
           - "-cookie-name=adminauth"
           - "-cookie-secure=true"
@@ -106,27 +106,6 @@ spec:
     http:
       paths:
       - path: /oauth2
-        backend:
-          serviceName: [variables('KUBE_BOT_IMAGE_NAME')]
-          servicePort: 80
----
-apiVersion: extensions/v1beta1
-kind: Ingress
-metadata:
-  annotations:
-    kubernetes.io/ingress.class: "nginx"
-  name: [variables('KUBE_BOT_IMAGE_NAME')]-web
-  namespace: oauth
-spec:
-  tls:
-  - hosts:
-    - devservices.webjet.co.nz
-    secretName: webjet-tls-ssl 
-  rules:
-  - host: devservices.webjet.co.nz
-    http:
-      paths:
-      - path: /web
         backend:
           serviceName: [variables('KUBE_BOT_IMAGE_NAME')]
           servicePort: 80
