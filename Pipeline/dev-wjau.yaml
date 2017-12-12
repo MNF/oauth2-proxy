@@ -118,7 +118,7 @@ kind: Ingress
 metadata:
   annotations:
     kubernetes.io/ingress.class: "nginx"
-  name: [variables('KUBE_BOT_IMAGE_NAME')]
+  name: [variables('KUBE_BOT_IMAGE_NAME')]-web
   namespace: oauth
 spec:
   tls:
