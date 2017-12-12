@@ -1,7 +1,7 @@
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: [variables('KUBE_BOT_IMAGE_NAME')]-nz
+  name: [variables('KUBE_BOT_IMAGE_NAME')]
   namespace: oauth
 spec:
   replicas: 2
