@@ -19,7 +19,11 @@ spec:
         imagePullPolicy: IfNotPresent
         args:
           - "-config=/etc/config/oauth2_proxy.cfg"
-          - "-upstream=http://packagescampaignmanager-web.hotels/admin/web/packages/serenityservice/"
+          - "-upstreams=[ 
+                  http://packagescampaignmanager-web.hotels/admin/web/packages/serenityservice/, 
+                  http://itinerarylist-wjau.serviceportal/web/admin/itinerarylist/serenityservice/, 
+                  http://itinerarylist-wjnz.serviceportal/web/admin/itinerarylist/serenityservice/
+              ]"        
           - "-provider=azure"
           - "-cookie-name=adminauth"
           - "-cookie-secure=true"
@@ -108,4 +112,24 @@ spec:
         backend:
           serviceName: [variables('KUBE_BOT_IMAGE_NAME')]
           servicePort: 80
-
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+  name: [variables('KUBE_BOT_IMAGE_NAME')]
+  namespace: oauth
+spec:
+  tls:
+  - hosts:
+    - devservices.webjet.com.au
+    secretName: webjet-tls-ssl 
+  rules:
+  - host: devservices.webjet.com.au
+    http:
+      paths:
+      - path: /web
+        backend:
+          serviceName: [variables('KUBE_BOT_IMAGE_NAME')]
+          servicePort: 80
