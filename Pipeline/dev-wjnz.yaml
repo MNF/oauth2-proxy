@@ -19,8 +19,7 @@ spec:
         imagePullPolicy: IfNotPresent
         args:
           - "-config=/etc/config/oauth2_proxy.cfg"
-          # - "-upstream=http://packagescampaignmanager-web.hotels/admin/web/packages/serenityservice/" 
-          - "-upstream=http://itinerarylist-wjnz.serviceportal/admin/web/portal/itinerarylist/" 
+          - "-upstream=http://packagescampaignmanager-web.hotels/admin/web/packages/serenityservice/,http://itinerarylist-wjnz.serviceportal/admin/web/portal/itinerarylist/" 
           - "-provider=azure"
           - "-cookie-name=adminauth"
           - "-cookie-secure=true"
