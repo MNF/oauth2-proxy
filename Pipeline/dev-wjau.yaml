@@ -20,7 +20,7 @@ spec:
         args:
           - "-config=/etc/config/oauth2_proxy.cfg"
           - "-upstream=http://packagescampaignmanager-web.hotels/admin/web/packages/serenityservice/" 
-          - "-upstream=http://itinerarylist-wjau.serviceportal/admin/web/itinerarylist/" 
+          - "-upstream=http://itinerarylist-wjau.serviceportal/admin/web/portal/itinerarylist/" 
           - "-provider=azure"
           - "-cookie-name=adminauth"
           - "-cookie-secure=true"
