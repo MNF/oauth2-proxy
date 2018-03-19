@@ -37,11 +37,11 @@ spec:
           - "-pass-groups=true"
         resources:
           requests:
-            memory: "50Mi"
-            cpu: "100m"
+            memory: "250Mi"
+            cpu: "10m"
           limits:
-            memory: "5120Mi"
-            cpu: "1.5"
+            memory: "1024Mi"
+            cpu: "1"
         ports:
           - containerPort: 4180
         volumeMounts:
