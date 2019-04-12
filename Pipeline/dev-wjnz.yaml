@@ -15,7 +15,7 @@ spec:
       dnsPolicy: ClusterFirst
       containers:
       - name: [variables('KUBE_BOT_IMAGE_NAME')]
-        image: "[variables('KUBE_BOT_CONTAINER_REGISTRY')]/[variables('KUBE_BOT_CONTAINER_REPO')]/oauthservice:[variables('KUBE_BOT_IMAGE_TAG')]"
+        image: "[variables('KUBE_BOT_CONTAINER_REGISTRY')]/[variables('KUBE_BOT_CONTAINER_REPO')]/oauthservice:70"
         imagePullPolicy: IfNotPresent
         args:
           - "-config=/etc/config/oauth2_proxy.cfg"
