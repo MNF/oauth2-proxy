@@ -54,27 +54,5 @@ node('agent-debian-dind') {
         '''
 	}
 
-   stage('deploy-kubernetes-prod-wjau') {
-        sh '''
-           curl -X POST http://kubebot.default/deploy/prod/oauth/oauthservice/${BUILD_NUMBER} --data-binary "@$WORKSPACE/Pipeline/prod-wjau.yaml" -H 'Content-Type: application/yaml'
-            rc=$?
-            if test "$rc" != 0; then
-                echo "Something went wrong with the deployment"
-                exit 1
-            fi        
-        '''
-	}
-
-   stage('deploy-kubernetes-prod-wjnz') {
-        sh '''
-           curl -X POST http://kubebot.default/deploy/prod/oauth/oauthservice-nz/${BUILD_NUMBER} --data-binary "@$WORKSPACE/Pipeline/prod-wjnz.yaml" -H 'Content-Type: application/yaml'
-            rc=$?
-            if test "$rc" != 0; then
-                echo "Something went wrong with the deployment"
-                exit 1
-            fi        
-        '''
-	}
-
 } 
 }             
