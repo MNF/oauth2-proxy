@@ -78,7 +78,7 @@ spec:
   tls:
   - hosts:
     - services.webjet.co.nz
-    secretName: webjet-tls-ssl 
+    secretName: webjet-nz-tls-ssl 
   rules:
   - host: services.webjet.co.nz
     http:
@@ -99,7 +99,7 @@ spec:
   tls:
   - hosts:
     - services.webjet.co.nz
-    secretName: webjet-tls-ssl 
+    secretName: webjet-nz-tls-ssl 
   rules:
   - host: services.webjet.co.nz
     http:
