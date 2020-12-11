@@ -1,111 +1,42 @@
-apiVersion: extensions/v1beta1
-kind: Deployment
-metadata:
-  name: [variables('KUBE_BOT_IMAGE_NAME')]
-  namespace: oauth
-spec:
-  replicas: 2
-  revisionHistoryLimit: 2  
-  template:
-    metadata:
-      labels:
-        app: [variables('KUBE_BOT_IMAGE_NAME')]
-    spec:
-      restartPolicy: Always
-      dnsPolicy: ClusterFirst
-      containers:
-      - name: [variables('KUBE_BOT_IMAGE_NAME')]
-        image: "[variables('KUBE_BOT_CONTAINER_REGISTRY')]/[variables('KUBE_BOT_CONTAINER_REPO')]/oauthservice:[variables('KUBE_BOT_IMAGE_TAG')]"
-        imagePullPolicy: IfNotPresent
-        args:
-          - "-config=/etc/config/oauth2_proxy.cfg"
-          - "-upstream=http://packagescampaignmanager-web.hotels/admin/web/packages/serenityservice/,http://itinerarylist-wjau.serviceportal/admin/web/portal/itinerarylist/,http://flightsdatamanagement-web-au.flights/admin/web/flights/serenityservice/,http://price-lookup.ui/admin/web/ui/pricelookup/,http://packagesaiwebportal.hotels/admin/web/packages/ai-controller/,http://bsp-refund-web.serviceportal/admin/web/serviceportal/bsp-refund/,http://bsp-refund-api.serviceportal/admin/api/serviceportal/bsp-refund/"      
-          - "-provider=azure"
-          - "-cookie-name=adminauth"
-          - "-cookie-secure=true"
-          - "-cookie-expire=12h0m"
-          - "-cookie-refresh=10h30m"
-          - "-cookie-domain=services.webjet.com.au"
-          - "-email-domain=*"
-          - "-http-address=http://0.0.0.0:4180"
-          - "-azure-tenant=5de0e68c-0afd-4a67-b089-31f168aa4ca0"
-          - "-pass-groups=true"
-          - "-approval-prompt="
-          - "-skip-provider-button=true"
-          - "-redirect-url=https://services.webjet.com.au/oauth2/callback"
-          - "-pass-user-headers=true"
-          - "-pass-groups=true"
-        resources:
-          requests:
-            memory: "750Mi"
-            cpu: "10m"
-          limits:
-            memory: "1024Mi"
-            cpu: "1"
-        ports:
-          - containerPort: 4180
-        volumeMounts:
-        - name: oauthvolumemount
-          mountPath: /etc/config
-      volumes:
-      - name: oauthvolumemount
-        secret:
-          secretName: oauth2config
-      imagePullSecrets:
-      - name: registrykey
----
-kind: Service
-apiVersion: v1
-metadata:
-  name: [variables('KUBE_BOT_IMAGE_NAME')]
-  namespace: oauth
-spec:
-  selector:
-    app: [variables('KUBE_BOT_IMAGE_NAME')]
-  ports:
-    - protocol: TCP
-      port: 80
-      targetPort: 4180
----
-apiVersion: extensions/v1beta1
-kind: Ingress
-metadata:
-  annotations:
-    kubernetes.io/ingress.class: "nginx"
-  name: [variables('KUBE_BOT_IMAGE_NAME')]
-  namespace: oauth
-spec:
-  tls:
-  - hosts:
-    - services.webjet.com.au
-    secretName: webjet-tls-ssl 
+Kind: kubebot.values/v1
+deployment:
+  image: oauthservice
+  # livenessProbe: /
+  port: 4180
+  env:
+    - name: ENVIRONMENT
+      value: production
+    - name: SITE
+      value: wjau
+  args:
+    - "-config=/etc/config/oauth2_proxy.cfg"
+    - "-upstream=http://packagescampaignmanager-web.hotels/admin/web/packages/serenityservice/,http://itinerarylist-wjau.serviceportal/admin/web/portal/itinerarylist/,http://flightsdatamanagement-web-au.flights/admin/web/flights/serenityservice/,http://price-lookup.ui/admin/web/ui/pricelookup/,http://packagesaiwebportal.hotels/admin/web/packages/ai-controller/,http://bsp-refund-web.serviceportal/admin/web/serviceportal/bsp-refund/,http://bsp-refund-api.serviceportal/admin/api/serviceportal/bsp-refund/"      
+    - "-provider=azure"
+    - "-cookie-name=adminauth"
+    - "-cookie-secure=true"
+    - "-cookie-expire=12h0m"
+    - "-cookie-refresh=10h30m"
+    - "-cookie-domain=services.webjet.com.au"
+    - "-email-domain=*"
+    - "-http-address=http://0.0.0.0:4180"
+    - "-azure-tenant=5de0e68c-0afd-4a67-b089-31f168aa4ca0"
+    - "-pass-groups=true"
+    - "-approval-prompt="
+    - "-skip-provider-button=true"
+    - "-redirect-url=https://services.webjet.com.au/oauth2/callback"
+    - "-pass-user-headers=true"
+    - "-pass-groups=true"
+
+secret:
+  - name: oauth2config
+    path: /etc/config
+
+ingress:
+  ssi: on
+  rewrite-target: /
   rules:
-  - host: services.webjet.com.au
-    http:
-      paths:
-      - path: /admin
-        backend:
-          serviceName: [variables('KUBE_BOT_IMAGE_NAME')]
-          servicePort: 80
----
-apiVersion: extensions/v1beta1
-kind: Ingress
-metadata:
-  annotations:
-    kubernetes.io/ingress.class: "nginx"
-  name: [variables('KUBE_BOT_IMAGE_NAME')]-oauth
-  namespace: oauth
-spec:
-  tls:
-  - hosts:
-    - services.webjet.com.au
-    secretName: webjet-tls-ssl 
-  rules:
-  - host: services.webjet.com.au
-    http:
-      paths:
-      - path: /oauth2
-        backend:
-          serviceName: [variables('KUBE_BOT_IMAGE_NAME')]
-          servicePort: 80
+  - hostname: services.webjet.com.au
+    paths:
+    - path: /admin
+    - path: /oauth2
 
