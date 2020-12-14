@@ -1,0 +1,42 @@
+Kind: kubebot.values/v1
+deployment:
+  image: oauthservice
+  # livenessProbe: /
+  port: 4180
+  env:
+    - name: ENVIRONMENT
+      value: development
+    - name: SITE
+      value: wjnz
+  args:
+    - "-config=/etc/config/oauth2_proxy.cfg"
+    - "-upstream=http://packagescampaignmanager-web-nz.hotels/admin/web/packages/serenityservice/,http://itinerarylist-wjnz.serviceportal/admin/web/portal/itinerarylist/,http://flightsdatamanagement-web-nz.flights/admin/web/flights/serenityservice/" 
+    - "-provider=azure"
+    - "-cookie-name=adminauth"
+    - "-cookie-secure=true"
+    - "-cookie-expire=12h0m"
+    - "-cookie-refresh=10h30m"
+    - "-cookie-domain=services.dev.webjet.co.nz"
+    - "-email-domain=*"
+    - "-http-address=http://0.0.0.0:4180"
+    - "-azure-tenant=5de0e68c-0afd-4a67-b089-31f168aa4ca0"
+    - "-pass-groups=true"
+    - "-approval-prompt="
+    - "-skip-provider-button=true"
+    - "-redirect-url=https://services.dev.webjet.co.nz/oauth2/callback"
+    - "-pass-user-headers=true"
+    - "-pass-groups=true"
+
+secret:
+  - name: oauth2config
+    path: /etc/config
+
+ingress:
+  ssi: on
+  rewrite-target: /
+  rules:
+  - hostname: services.dev.webjet.co.nz
+    paths:
+    - path: /admin
+    - path: /oauth2
+
