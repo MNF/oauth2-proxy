@@ -41,7 +41,7 @@ jobs:
         with:
           environment: 'dev'
           service: 'oauthservice'
-          manifest: 'pipeline/dev-wjau.yaml'
+          manifest: 'go/src/oauth2_proxy/pipeline/dev-wjau.yaml'
 
       # - name: Deploy DEV WJNZ
       #   uses: webjet/action-kubebot-deploy@v1
