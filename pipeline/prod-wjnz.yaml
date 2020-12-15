@@ -28,8 +28,7 @@ deployment:
     - "-pass-groups=true"
 
 secret:
-  - name: oauth2config
-    path: /etc/config
+  path: /etc/config
 
 ingress:
   ssi: on
