@@ -31,8 +31,6 @@ secret:
   path: /etc/config
 
 ingress:
-  ssi: on
-  rewrite-target: /
   rules:
   - hostname: services.dev.webjet.co.nz
     paths:
