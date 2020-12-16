@@ -1,4 +1,4 @@
-name: Prod Deployment 
+name: Dev and Prod Deployment 
 
 on:
   push:
@@ -35,9 +35,6 @@ jobs:
 
       - name: Deploy DEV WJAU
         uses: webjet/action-kubebot-deploy@v1
-        env:
-          ENVIRONMENT: dev
-          SITE: au
         with:
           environment: 'dev'
           service: 'oauthservice'
@@ -45,9 +42,6 @@ jobs:
 
       - name: Deploy DEV WJNZ
         uses: webjet/action-kubebot-deploy@v1
-        env:
-          ENVIRONMENT: dev
-          SITE: nz
         with:
           environment: 'dev'
           service: 'oauthservice-nz'
@@ -56,9 +50,6 @@ jobs:
       - name: Deploy PROD WJAU
         if: ( github.event_name != 'workflow_dispatch' && env.DEPLOYTOPROD == 1 ) || ( github.event_name == 'workflow_dispatch' && github.event.inputs.deployToProd == 'true' )
         uses: webjet/action-kubebot-deploy@v1
-        env:
-          ENVIRONMENT: prod
-          SITE: au
         with:
           environment: 'prod'
           service: 'oauthservice'
@@ -67,9 +58,6 @@ jobs:
       - name: Deploy PROD WJNZ
         if: ( github.event_name != 'workflow_dispatch' && env.DEPLOYTOPROD == 1 ) || ( github.event_name == 'workflow_dispatch' && github.event.inputs.deployToProd == 'true' )
         uses: webjet/action-kubebot-deploy@v1
-        env:
-          ENVIRONMENT: prod
-          SITE: nz
         with:
           environment: 'prod'
           service: 'oauthservice-nz'
