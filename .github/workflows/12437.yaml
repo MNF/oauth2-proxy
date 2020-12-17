@@ -47,18 +47,18 @@ jobs:
           service: 'oauthservice-nz'
           manifest: 'pipeline/dev-wjnz.yaml'
 
-      # - name: Deploy PROD WJAU
-      #   if: ( github.event_name != 'workflow_dispatch' && env.DEPLOYTOPROD == 1 ) || ( github.event_name == 'workflow_dispatch' && github.event.inputs.deployToProd == 'true' )
-      #   uses: webjet/action-kubebot-deploy@v1
-      #   with:
-      #     environment: 'prod'
-      #     service: 'oauthservice'
-      #     manifest: 'pipeline/prod-wjau.yaml'
+      - name: Deploy PROD WJAU
+        if: ( github.event_name != 'workflow_dispatch' && env.DEPLOYTOPROD == 1 ) || ( github.event_name == 'workflow_dispatch' && github.event.inputs.deployToProd == 'true' )
+        uses: webjet/action-kubebot-deploy@v1
+        with:
+          environment: 'prod'
+          service: 'oauthservice'
+          manifest: 'pipeline/prod-wjau.yaml'
 
-      # - name: Deploy PROD WJNZ
-      #   if: ( github.event_name != 'workflow_dispatch' && env.DEPLOYTOPROD == 1 ) || ( github.event_name == 'workflow_dispatch' && github.event.inputs.deployToProd == 'true' )
-      #   uses: webjet/action-kubebot-deploy@v1
-      #   with:
-      #     environment: 'prod'
-      #     service: 'oauthservice-nz'
-      #     manifest: 'pipeline/prod-wjnz.yaml'
+      - name: Deploy PROD WJNZ
+        if: ( github.event_name != 'workflow_dispatch' && env.DEPLOYTOPROD == 1 ) || ( github.event_name == 'workflow_dispatch' && github.event.inputs.deployToProd == 'true' )
+        uses: webjet/action-kubebot-deploy@v1
+        with:
+          environment: 'prod'
+          service: 'oauthservice-nz'
+          manifest: 'pipeline/prod-wjnz.yaml'
