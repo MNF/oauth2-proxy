@@ -1,0 +1,64 @@
+name: Dev and Prod Deployment 
+
+on:
+  push:
+    branches: [ master ]
+
+env:
+  NAMESPACE: oauth
+  IMAGENAME: oauthservice
+  DEPLOYTOPROD: 1 # 1=yes, 0=no
+
+jobs:
+  build:
+    runs-on: [ webjet, linux ]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Init k8s
+        uses: webjet/action-kubernetes-init@v1
+        with:
+          env-json-base64: ${{ secrets.JSONDATA64 }}
+
+      - name: Notify Teams
+        uses: webjet/action-msteams@v1
+        with:
+          webhook-uri: ${{ secrets.SERVICEPORTAL_MSTEAMS_WEBHOOK  }}
+
+      - name: Build Image
+        uses: webjet/action-build-image@v1
+
+      - name: Push Image
+        uses: webjet/action-push-image@v1
+
+      - name: Deploy DEV WJAU
+        uses: webjet/action-kubebot-deploy@v1
+        with:
+          environment: 'dev'
+          service: 'oauthservice'
+          manifest: 'pipeline/dev-wjau.yaml'
+
+      - name: Deploy DEV WJNZ
+        uses: webjet/action-kubebot-deploy@v1
+        with:
+          environment: 'dev'
+          service: 'oauthservice-nz'
+          manifest: 'pipeline/dev-wjnz.yaml'
+
+      - name: Deploy PROD WJAU
+        if: ( github.event_name != 'workflow_dispatch' && env.DEPLOYTOPROD == 1 ) || ( github.event_name == 'workflow_dispatch' && github.event.inputs.deployToProd == 'true' )
+        uses: webjet/action-kubebot-deploy@v1
+        with:
+          environment: 'prod'
+          service: 'oauthservice'
+          manifest: 'pipeline/prod-wjau.yaml'
+
+      - name: Deploy PROD WJNZ
+        if: ( github.event_name != 'workflow_dispatch' && env.DEPLOYTOPROD == 1 ) || ( github.event_name == 'workflow_dispatch' && github.event.inputs.deployToProd == 'true' )
+        uses: webjet/action-kubebot-deploy@v1
+        with:
+          environment: 'prod'
+          service: 'oauthservice-nz'
+          manifest: 'pipeline/prod-wjnz.yaml'
