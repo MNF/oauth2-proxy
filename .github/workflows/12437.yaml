@@ -7,7 +7,7 @@ on:
 env:
   NAMESPACE: oauth
   IMAGENAME: oauthservice
-  DEPLOYTOPROD: 0 # 1=yes, 0=no
+  DEPLOYTOPROD: 1 # 1=yes, 0=no
 
 jobs:
   build:
