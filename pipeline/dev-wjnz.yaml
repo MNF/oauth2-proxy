@@ -10,7 +10,7 @@ deployment:
       value: wjnz
   args:
     - "-config=/etc/config/oauth2_proxy.cfg"
-    - "-upstream=http://packagescampaignmanager-web-nz.hotels/admin/web/packages/serenityservice/,http://itinerarylist-wjnz.serviceportal/admin/web/portal/itinerarylist/,http://flightsdatamanagement-web-nz.flights/admin/web/flights/serenityservice/,http://price-lookup.ui/admin/web/ui/pricelookup/"
+    - "-upstream=http://packagescampaignmanager-web-nz.hotels/admin/web/packages/serenityservice/,http://itinerarylist-wjnz.serviceportal/admin/web/portal/itinerarylist/,http://flightsdatamanagement-web-nz.flights/admin/web/flights/serenityservice/,http://price-lookup.ui/admin/web/ui/pricelookup/,http://travellerprofileweb-wjnz.serviceportal/web/customer/travellerprofile/"
     - "-provider=azure"
     - "-cookie-name=adminauth"
     - "-cookie-secure=true"
@@ -37,3 +37,4 @@ ingress:
     paths:
     - path: /admin
     - path: /oauth2
+    - path: /web
