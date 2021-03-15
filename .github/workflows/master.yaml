@@ -62,3 +62,17 @@ jobs:
           environment: 'prod'
           service: 'oauthservice-nz'
           manifest: 'pipeline/prod-wjnz.yaml'
+
+      - name: Deploy Teamcity Oauth
+        uses: webjet/action-kubebot-deploy@v1
+        with:
+          environment: 'dev'
+          service: 'teamcityoauthservice'
+          manifest: 'pipeline/teamcity.yaml'
+
+      - name: Deploy Tableau Oauth
+        uses: webjet/action-kubebot-deploy@v1
+        with:
+          environment: 'dev'
+          service: 'tableauoauthservice'
+          manifest: 'pipeline/tableau.yaml'
