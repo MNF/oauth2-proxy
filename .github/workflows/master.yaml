@@ -22,10 +22,10 @@ jobs:
         with:
           env-json-base64: ${{ secrets.JSONDATA64 }}
 
-      - name: Notify Teams
-        uses: webjet/action-msteams@v1
-        with:
-          webhook-uri: ${{ secrets.SERVICEPORTAL_MSTEAMS_WEBHOOK  }}
+      # - name: Notify Teams
+      #   uses: webjet/action-msteams@v1
+      #   with:
+      #     webhook-uri: ${{ secrets.SERVICEPORTAL_MSTEAMS_WEBHOOK  }}
 
       - name: Build Image
         uses: webjet/action-build-image@v1
@@ -33,12 +33,12 @@ jobs:
       - name: Push Image
         uses: webjet/action-push-image@v1
 
-      - name: Deploy DEV WJAU
-        uses: webjet/action-kubebot-deploy@v1
-        with:
-          environment: 'dev'
-          service: 'oauthservice'
-          manifest: 'pipeline/dev-wjau.yaml'
+      # - name: Deploy DEV WJAU
+      #   uses: webjet/action-kubebot-deploy@v1
+      #   with:
+      #     environment: 'dev'
+      #     service: 'oauthservice'
+      #     manifest: 'pipeline/dev-wjau.yaml'
 
       # - name: Deploy DEV WJNZ
       #   uses: webjet/action-kubebot-deploy@v1
