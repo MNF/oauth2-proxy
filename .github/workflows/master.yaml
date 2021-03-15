@@ -2,7 +2,7 @@ name: Dev and Prod Deployment
 
 on:
   push:
-    branches: [ add-teamcify-tablau ]
+    branches: [ add-teamcity-tableau ]
 
 env:
   NAMESPACE: oauth
