@@ -24,8 +24,8 @@ secret:
   path: /etc/config
 
 ingress:
-  ssi: on
   rules:
   - hostname: teamcity.dev.webjet.com.au
     paths:
     - path: /
+    - path: /oauth2
