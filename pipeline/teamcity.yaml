@@ -1,0 +1,31 @@
+Kind: kubebot.values/v1
+deployment:
+  image: oauthservice
+  port: 4180
+  args:
+    - "-config=/etc/config/oauth2_proxy.cfg"
+    - "-upstream=https://teamcityserver.dev.webjet.com.au/" 
+    - "-provider=azure"
+    - "-cookie-name=adminauth"
+    - "-cookie-secure=true"
+    - "-cookie-expire=12h0m"
+    - "-cookie-refresh=10h30m"
+    - "-cookie-domain=teamcity.dev.webjet.com.au"
+    - "-email-domain=*"
+    - "-http-address=http://0.0.0.0:4180"
+    - "-azure-tenant=5de0e68c-0afd-4a67-b089-31f168aa4ca0"
+    - "-pass-groups=true"
+    - "-approval-prompt="
+    - "-skip-provider-button=true"
+    - "-redirect-url=https://teamcity.dev.webjet.com.au/oauth2/callback"
+    - "-pass-user-headers=true"
+    - "-pass-groups=true"
+secret:
+  path: /etc/config
+
+ingress:
+  rules:
+  - hostname: teamcity.dev.webjet.com.au
+    paths:
+    - path: /
+    - path: /oauth2
