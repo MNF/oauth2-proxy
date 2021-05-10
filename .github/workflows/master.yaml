@@ -37,14 +37,14 @@ jobs:
         uses: webjet/action-kubebot-deploy@v1
         with:
           environment: 'dev'
-          service: 'oauthservice'
+          service: 'oauthservice-wjau'
           manifest: 'pipeline/dev-wjau.yaml'
 
       - name: Deploy DEV WJNZ
         uses: webjet/action-kubebot-deploy@v1
         with:
           environment: 'dev'
-          service: 'oauthservice-nz'
+          service: 'oauthservice-wjnz'
           manifest: 'pipeline/dev-wjnz.yaml'
 
       - name: Deploy PROD WJAU
@@ -52,7 +52,7 @@ jobs:
         uses: webjet/action-kubebot-deploy@v1
         with:
           environment: 'prod'
-          service: 'oauthservice'
+          service: 'oauthservice-wjau'
           manifest: 'pipeline/prod-wjau.yaml'
 
       - name: Deploy PROD WJNZ
@@ -60,7 +60,7 @@ jobs:
         uses: webjet/action-kubebot-deploy@v1
         with:
           environment: 'prod'
-          service: 'oauthservice-nz'
+          service: 'oauthservice-wjnz'
           manifest: 'pipeline/prod-wjnz.yaml'
 
       - name: Deploy Teamcity Oauth
