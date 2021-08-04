@@ -69,6 +69,8 @@ jobs:
           environment: 'dev'
           service: 'teamcityoauthservice'
           manifest: 'pipeline/teamcity.yaml'
+          repository: 'bitnami'
+          tag: 7
 
       - name: Deploy Tableau Oauth
         uses: webjet/action-kubebot-deploy@v1
