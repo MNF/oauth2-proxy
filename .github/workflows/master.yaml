@@ -78,3 +78,5 @@ jobs:
           environment: 'dev'
           service: 'tableauoauthservice'
           manifest: 'pipeline/tableau.yaml'
+          repository: 'bitnami'
+          tag: 7

@@ -1,6 +1,6 @@
 Kind: kubebot.values/v1
 deployment:
-  image: oauthservice
+  image: oauth2-proxy
   port: 4180
   args:
     - "-config=/etc/config/oauth2_proxy.cfg"
