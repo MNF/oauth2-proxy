@@ -171,7 +171,6 @@ func legacyHeadersFlagSet() *pflag.FlagSet {
 	flagSet.String("basic-auth-password", "", "the password to set when passing the HTTP Basic Auth header")
 	flagSet.Bool("skip-auth-strip-headers", true, "strips X-Forwarded-* style authentication headers & Authorization header if they would be set by oauth2-proxy")
 
-
 	return flagSet
 }
 

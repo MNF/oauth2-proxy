@@ -121,17 +121,17 @@ func (s *SessionState) EncodeSessionState(c encryption.Cipher, compress bool) ([
 	if err != nil {
 		return nil, err
 	}
-	//logger.Printf("TRACE: SessionState: %+v", compressed)
+	// logger.Printf("TRACE: SessionState: %+v", compressed)
 	return c.Encrypt(compressed)
 }
 
-// [AB#14848] CUSTOM MARSHAL- save 3 fields as ':' separated FirstName, CustomerReferenceId, Email
-// Note, we assumed that DecodeSessionState will be never used, as we don’t disable unmarchal
-func Marshal(s *SessionState) []byte {
-	// [AB#14848] REQUIRED FORMAT BY LUA SCRIPT -see https://github.com/Webjet/wcs-reverse-proxy/blob/main/header.lua#L43
-	content := []byte(fmt.Sprintf("%s:%s:%s", s.PreferredUsername, s.User, s.Email))
-	return content
-}
+// // [AB#14848] CUSTOM MARSHAL- save 3 fields as ':' separated FirstName, CustomerReferenceId, Email
+// // Note, we assumed that DecodeSessionState will be never used, as we don’t disable unmarchal
+// func Marshal(s *SessionState) []byte {
+// 	// [AB#14848] REQUIRED FORMAT BY LUA SCRIPT -see https://github.com/Webjet/wcs-reverse-proxy/blob/main/header.lua#L43
+// 	content := []byte(fmt.Sprintf("%s:%s:%s", s.PreferredUsername, s.User, s.Email))
+// 	return content
+// }
 
 // DecodeSessionState decodes a LZ4 compressed MessagePack into a Session State
 func DecodeSessionState(data []byte, c encryption.Cipher, compressed bool) (*SessionState, error) {

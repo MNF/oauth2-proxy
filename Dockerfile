@@ -28,7 +28,7 @@ COPY --from=builder /go/src/github.com/oauth2-proxy/oauth2-proxy/jwt_signing_key
 
 #for local tests (TODO: parameterise if will cause problems on dev/prod deployments)
 RUN mkdir /etc/config/
-COPY pipeline/ota-b2c/oauth2_proxy.local.cfg /etc/config/oauth2_proxy.cfg 
+COPY pipeline/oauth2_proxy.local.cfg /etc/config/oauth2_proxy.cfg 
 RUN ls -l /etc/config/
 
 #RUN export HTTP_PROXY=127.0.0.1:8888

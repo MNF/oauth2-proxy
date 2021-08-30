@@ -25,10 +25,6 @@ func CreateTokenToSessionFunc(verify VerifyFunc) TokenToSessionFunc {
 			Email             string `json:"email"`
 			Verified          *bool  `json:"email_verified"`
 			PreferredUsername string `json:"preferred_username"`
-			//Extra explicit claims not required, as we in Webjet mapped  Email,User/Subject (i.e. customerReferenceId), PreferredUsername(receiving as  preferred_username)(I.e. FirstName)
-			// CustomerReferenceId string `json:"customerReferenceId"`
-			// FirstName           string `json:"firstName"`
-			// SignInName          string `json:"signInName"`
 		}
 
 		idToken, err := verify(ctx, token)
@@ -56,10 +52,6 @@ func CreateTokenToSessionFunc(verify VerifyFunc) TokenToSessionFunc {
 			IDToken:           token,
 			RefreshToken:      "",
 			ExpiresOn:         &idToken.Expiry,
-			//Extra explicit claims not required, as we in Webjet mapped  Email,User(i.e. customerReferenceId), PreferredUsername(receiving as  preferred_username)(I.e. FirstName)
-			//CustomerReferenceId: claims.CustomerReferenceId,
-			//FirstName:           claims.FirstName,
-			// SignInName:          claims.SignInName,
 		}
 
 		return newSession, nil
