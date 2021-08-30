@@ -589,7 +589,7 @@ func PrintReq(username, upstream string, req *http.Request, url url.URL, ts time
 
 // methods depending on loggo.Level
 //create similar methods for other levels, consider to move to separate file
-func LogTrace(format string, v ...interface{}) {
+func LogTracef(format string, v ...interface{}) {
 	//level loggo.Level,
 	if std.minimalLogLevel <= loggo.TRACE {
 		//Printf(format, v...) calldepth 3 to show caller

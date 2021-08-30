@@ -29,11 +29,6 @@ type SessionState struct {
 	User              string   `msgpack:"u,omitempty"`
 	Groups            []string `msgpack:"g,omitempty"`
 	PreferredUsername string   `msgpack:"pu,omitempty"`
-
-	//Extra explicit claims not required, as we in Webjet mapped  Email,User(i.e. customerReferenceId), PreferredUsername(receiving as  preferred_username)(I.e. FirstName)
-	// CustomerReferenceId string `msgpack:"cri,omitempty"`
-	// FirstName           string `msgpack:"fn,omitempty"`
-	//SignInName          string
 }
 
 // IsExpired checks whether the session has expired
@@ -106,14 +101,17 @@ func (s *SessionState) GetClaim(claim string) []string {
 	}
 }
 
-// EncodeSessionState returns an encrypted, lz4 compressed, Webjet doesn't use MessagePack , as LUA scripts not able to unpack them
+// EncodeSessionState returns an encrypted, lz4 compressed, MessagePack encoded session
 func (s *SessionState) EncodeSessionState(c encryption.Cipher, compress bool) ([]byte, error) {
-	//logger.Printf("TRACE: SessionState: %+v", s)
-	//packed, err := msgpack.Marshal(s) // Do not pack, as lua scripts do not support msgpack [AB#14848]
-	//	if err != nil {
-	//		return nil, fmt.Errorf("error marshalling session state to msgpack: %w", err)
-	//	}
-	packed := Marshal(s)
+	// logger.Printf("TRACE: SessionState: %+v", s)
+	packed, err := msgpack.Marshal(s)
+	if err != nil {
+		return nil, fmt.Errorf("error marshalling session state to msgpack: %w", err)
+	}
+
+	if !compress {
+		return c.Encrypt(packed)
+	}
 
 	if !compress {
 		return c.Encrypt(packed)

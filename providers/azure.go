@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"strings"
 	"time"
 
 	"github.com/bitly/go-simplejson"
@@ -296,6 +295,7 @@ func (p *AzureProvider) EnrichSession(ctx context.Context, s *sessions.SessionSt
 
 	return nil
 }
+
 // (p *ProviderData) SetAllowedGroup organizes a group list into the AllowedGroups map  to be consumed by Authorize implementations.
 //It is called from parseProviderInfo(o *options.Options)
 
@@ -303,26 +303,6 @@ func (p *AzureProvider) addGroupsToSession(s *sessions.SessionState) bool {
 	for _, group := range p.ProviderData.AllowedGroups {
 		s.Groups = append(s.Groups, fmt.Sprintf("group:%s", group))
 	}
-	// if len(p.ProviderData.AllowedGroups) != 0 {
-	// 	for _, pGroup := range p.ProviderData.AllowedGroups {
-	// 		//if strings.Contains(s.Groups, pGroup) {
-	// 			if (contains(s.Groups,pGroup)) {
-	// 			return true
-	// 		}
-	// 	}
-	// 	return false
-	// }
+
 	return true
-}
-
-//TODO: move to some util class https://freshman.tech/snippets/go/check-if-slice-contains-element/
-// https://play.golang.org/p/Qg_uv_inCek // contains checks if a string is present in a slice
-func contains(s []string, str string) bool {
-	for _, v := range s {
-		if strings.EqualFold( v , str) {  //https://stackoverflow.com/questions/24836044/case-insensitive-string-search-in-golang
-			return true
-		}
-	}
-
-	return false
 }

@@ -2,13 +2,9 @@ package providers
 
 import (
 	"context"
-	"fmt"
-	"io/ioutil"
-	"log"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"strings"
 	"testing"
 	"time"
 
@@ -55,42 +51,7 @@ func TestNewAzureProvider(t *testing.T) {
 type mockTransport struct {
 	params map[string]string
 }
-func newMockTransport(params map[string]string) http.RoundTripper {
-	return &mockTransport{params}
-}
-func (t *mockTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	log.Printf("Starting Round Tripper")
-	// Create mocked http.Response
-	response := &http.Response{
-		Header:     make(http.Header),
-		Request:    req,
-		StatusCode: http.StatusOK,
-	}
-	response.Header.Set("Content-Type", "application/json")
 
-	//url := req.URL
-	full_request := req.URL.Path
-	if req.URL.RawQuery != "" {
-		full_request += "?" + req.URL.RawQuery
-	}
-	var err error
-	if value, ok := t.params[full_request]; ok {
-		if req.Header.Get("Authorization") != "Bearer imaginary_access_token" {
-			response.StatusCode = http.StatusForbidden
-			err = fmt.Errorf("got 403. Bearer token '%v' is not correct", req.Header.Get("Authorization"))
-		} else {
-			response.StatusCode = http.StatusOK
-			response.Body = ioutil.NopCloser(strings.NewReader(value))
-			err = nil
-		}
-
-	} else {
-		response.StatusCode = http.StatusNotFound
-		err = fmt.Errorf("got 404. Requested path '%v' is not found", full_request)
-	}
-
-	return response, err
-}
 func TestAzureProviderOverrides(t *testing.T) {
 	p := NewAzureProvider(
 		&ProviderData{
@@ -310,6 +271,44 @@ func TestAzureProviderRefreshWhenExpired(t *testing.T) {
 	assert.Equal(t, timestamp, session.ExpiresOn.UTC())
 }
 
+/*TODO Convert TESTING GetGroups to testing addGroupsToSession
+//Previous PermittedGroups are now allowed_groups
+func newMockTransport(params map[string]string) http.RoundTripper {
+	return &mockTransport{params}
+}
+func (t *mockTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	log.Printf("Starting Round Tripper")
+	// Create mocked http.Response
+	response := &http.Response{
+		Header:     make(http.Header),
+		Request:    req,
+		StatusCode: http.StatusOK,
+	}
+	response.Header.Set("Content-Type", "application/json")
+
+	//url := req.URL
+	full_request := req.URL.Path
+	if req.URL.RawQuery != "" {
+		full_request += "?" + req.URL.RawQuery
+	}
+	var err error
+	if value, ok := t.params[full_request]; ok {
+		if req.Header.Get("Authorization") != "Bearer imaginary_access_token" {
+			response.StatusCode = http.StatusForbidden
+			err = fmt.Errorf("got 403. Bearer token '%v' is not correct", req.Header.Get("Authorization"))
+		} else {
+			response.StatusCode = http.StatusOK
+			response.Body = ioutil.NopCloser(strings.NewReader(value))
+			err = nil
+		}
+
+	} else {
+		response.StatusCode = http.StatusNotFound
+		err = fmt.Errorf("got 404. Requested path '%v' is not found", full_request)
+	}
+
+	return response, err
+}
 func TestAzureProviderNoGroups(t *testing.T) {
 	params := map[string]string{}
 		//path_group: payload_group_empty}
@@ -326,8 +325,7 @@ func TestAzureProviderNoGroups(t *testing.T) {
 	http.DefaultClient.Transport = nil
 	assert.Equal(t, 0, len(session.Groups))
 }
-/*TODO Convert TESTING GetGroups to testing addGroupsToSession 
-//Previous PermittedGroups are now allowed_groups 
+
 func TestAzureProviderWrongRequestGroups(t *testing.T) {
 	params := map[string]string{
 		path_group_wrong: payload_group_part_1}

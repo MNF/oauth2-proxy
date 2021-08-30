@@ -10,11 +10,11 @@ env:
  
 jobs:
   build:
-     env:
+    env:
       DEPLOY_DEV_AU: true
       DEPLOY_DEV_NZ: true
      # DEPLOY_PROD: false
-     runs-on: [webjet, linux]
+    runs-on: [webjet, linux]
 
     steps:
       - uses: actions/checkout@v2

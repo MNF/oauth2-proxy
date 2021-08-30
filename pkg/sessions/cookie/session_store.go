@@ -90,7 +90,7 @@ func (s *SessionStore) cookieForSession(ss *sessions.SessionState) ([]byte, erro
 		minimal.AccessToken = ""
 		minimal.IDToken = ""
 		minimal.RefreshToken = ""
-		logger.LogTrace("TRACE: minimal SessionState: %+v", minimal)
+		logger.LogTracef("TRACE: minimal SessionState: %+v", minimal)
 		return minimal.EncodeSessionState(s.CookieCipher, true)
 	}
 

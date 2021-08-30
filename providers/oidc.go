@@ -47,7 +47,7 @@ func (p *OIDCProvider) Redeem(ctx context.Context, redirectURL, code string) (*s
 		Scopes:      scopes,
 		RedirectURL: redirectURL,
 	}
-	logger.LogTrace("TRACE: Config: %+v", c)
+	logger.LogTracef("TRACE: Config: %+v", c)
 
 	//authOpts := make([]oauth2.AuthCodeOption, 0)
 	//authOpts = append(authOpts, oauth2.SetAuthURLParam("scope", p.Scope))
