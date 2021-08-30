@@ -1,12 +1,16 @@
 package providers
 
 import (
+	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"testing"
 
-	"github.com/bmizerany/assert"
+	"github.com/oauth2-proxy/oauth2-proxy/v7/pkg/apis/sessions"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/extensions/table"
+	. "github.com/onsi/gomega"
 )
 
 func testGitLabProvider(hostname string) *GitLabProvider {
@@ -24,105 +28,254 @@ func testGitLabProvider(hostname string) *GitLabProvider {
 		updateURL(p.Data().ProfileURL, hostname)
 		updateURL(p.Data().ValidateURL, hostname)
 	}
+
 	return p
 }
 
-func testGitLabBackend(payload string) *httptest.Server {
-	path := "/api/v3/user"
-	query := "access_token=imaginary_access_token"
+func testGitLabBackend() *httptest.Server {
+	userInfo := `
+		{
+			"nickname": "FooBar",
+			"email": "foo@bar.com",
+			"email_verified": false,
+			"groups": ["foo", "bar"]
+		}
+	`
+	projectInfo := `
+		{
+			"name": "MyProject",
+			"archived": false,
+			"path_with_namespace": "my_group/my_project",
+			"permissions": {
+				"project_access": null,
+				"group_access": {
+					"access_level": 30,
+					"notification_level": 3
+				}
+			}
+		}
+	`
+
+	personalProjectInfo := `
+		{
+			"name": "MyPersonalProject",
+			"archived": false,
+			"path_with_namespace": "my_profile/my_personal_project",
+			"permissions": {
+				"project_access": {
+					"access_level": 30,
+					"notification_level": 3
+				},
+				"group_access": null
+			}
+		}
+	`
+
+	archivedProjectInfo := `
+		{
+			"name": "MyArchivedProject",
+			"archived": true,
+			"path_with_namespace": "my_group/my_archived_project",
+			"permissions": {
+				"project_access": {
+					"access_level": 30,
+					"notification_level": 3
+				},
+				"group_access": null
+			}
+		}
+	`
+
+	authHeader := "Bearer gitlab_access_token"
 
 	return httptest.NewServer(http.HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
-			url := r.URL
-			if url.Path != path || url.RawQuery != query {
+			switch r.URL.Path {
+			case "/oauth/userinfo":
+				if r.Header["Authorization"][0] == authHeader {
+					w.WriteHeader(200)
+					w.Write([]byte(userInfo))
+				} else {
+					w.WriteHeader(401)
+				}
+			case "/api/v4/projects/my_group/my_project":
+				if r.Header["Authorization"][0] == authHeader {
+					w.WriteHeader(200)
+					w.Write([]byte(projectInfo))
+				} else {
+					w.WriteHeader(401)
+				}
+			case "/api/v4/projects/my_group/my_archived_project":
+				if r.Header["Authorization"][0] == authHeader {
+					w.WriteHeader(200)
+					w.Write([]byte(archivedProjectInfo))
+				} else {
+					w.WriteHeader(401)
+				}
+			case "/api/v4/projects/my_profile/my_personal_project":
+				if r.Header["Authorization"][0] == authHeader {
+					w.WriteHeader(200)
+					w.Write([]byte(personalProjectInfo))
+				} else {
+					w.WriteHeader(401)
+				}
+			case "/api/v4/projects/my_group/my_bad_project":
+				w.WriteHeader(403)
+			default:
 				w.WriteHeader(404)
-			} else {
-				w.WriteHeader(200)
-				w.Write([]byte(payload))
 			}
 		}))
 }
 
-func TestGitLabProviderDefaults(t *testing.T) {
-	p := testGitLabProvider("")
-	assert.NotEqual(t, nil, p)
-	assert.Equal(t, "GitLab", p.Data().ProviderName)
-	assert.Equal(t, "https://gitlab.com/oauth/authorize",
-		p.Data().LoginURL.String())
-	assert.Equal(t, "https://gitlab.com/oauth/token",
-		p.Data().RedeemURL.String())
-	assert.Equal(t, "https://gitlab.com/api/v3/user",
-		p.Data().ValidateURL.String())
-	assert.Equal(t, "api", p.Data().Scope)
-}
+var _ = Describe("Gitlab Provider Tests", func() {
+	var p *GitLabProvider
+	var b *httptest.Server
 
-func TestGitLabProviderOverrides(t *testing.T) {
-	p := NewGitLabProvider(
-		&ProviderData{
-			LoginURL: &url.URL{
-				Scheme: "https",
-				Host:   "example.com",
-				Path:   "/oauth/auth"},
-			RedeemURL: &url.URL{
-				Scheme: "https",
-				Host:   "example.com",
-				Path:   "/oauth/token"},
-			ValidateURL: &url.URL{
-				Scheme: "https",
-				Host:   "example.com",
-				Path:   "/api/v3/user"},
-			Scope: "profile"})
-	assert.NotEqual(t, nil, p)
-	assert.Equal(t, "GitLab", p.Data().ProviderName)
-	assert.Equal(t, "https://example.com/oauth/auth",
-		p.Data().LoginURL.String())
-	assert.Equal(t, "https://example.com/oauth/token",
-		p.Data().RedeemURL.String())
-	assert.Equal(t, "https://example.com/api/v3/user",
-		p.Data().ValidateURL.String())
-	assert.Equal(t, "profile", p.Data().Scope)
-}
+	BeforeEach(func() {
+		b = testGitLabBackend()
 
-func TestGitLabProviderGetEmailAddress(t *testing.T) {
-	b := testGitLabBackend("{\"email\": \"michael.bland@gsa.gov\"}")
-	defer b.Close()
+		bURL, err := url.Parse(b.URL)
+		Expect(err).To(BeNil())
 
-	b_url, _ := url.Parse(b.URL)
-	p := testGitLabProvider(b_url.Host)
+		p = testGitLabProvider(bURL.Host)
+	})
 
-	session := &SessionState{AccessToken: "imaginary_access_token"}
-	email, err := p.GetEmailAddress(session)
-	assert.Equal(t, nil, err)
-	assert.Equal(t, "michael.bland@gsa.gov", email)
-}
+	AfterEach(func() {
+		b.Close()
+	})
 
-// Note that trying to trigger the "failed building request" case is not
-// practical, since the only way it can fail is if the URL fails to parse.
-func TestGitLabProviderGetEmailAddressFailedRequest(t *testing.T) {
-	b := testGitLabBackend("unused payload")
-	defer b.Close()
+	Context("with bad token", func() {
+		It("should trigger an error", func() {
+			p.AllowUnverifiedEmail = false
+			session := &sessions.SessionState{AccessToken: "unexpected_gitlab_access_token"}
+			err := p.EnrichSession(context.Background(), session)
+			Expect(err).To(MatchError(errors.New("failed to retrieve user info: error getting user info: unexpected status \"401\": ")))
+		})
+	})
 
-	b_url, _ := url.Parse(b.URL)
-	p := testGitLabProvider(b_url.Host)
+	Context("when filtering on email", func() {
+		type emailsTableInput struct {
+			expectedError        error
+			expectedValue        string
+			allowUnverifiedEmail bool
+		}
 
-	// We'll trigger a request failure by using an unexpected access
-	// token. Alternatively, we could allow the parsing of the payload as
-	// JSON to fail.
-	session := &SessionState{AccessToken: "unexpected_access_token"}
-	email, err := p.GetEmailAddress(session)
-	assert.NotEqual(t, nil, err)
-	assert.Equal(t, "", email)
-}
+		DescribeTable("should return expected results",
+			func(in emailsTableInput) {
+				p.AllowUnverifiedEmail = in.allowUnverifiedEmail
+				session := &sessions.SessionState{AccessToken: "gitlab_access_token"}
 
-func TestGitLabProviderGetEmailAddressEmailNotPresentInPayload(t *testing.T) {
-	b := testGitLabBackend("{\"foo\": \"bar\"}")
-	defer b.Close()
+				err := p.EnrichSession(context.Background(), session)
 
-	b_url, _ := url.Parse(b.URL)
-	p := testGitLabProvider(b_url.Host)
+				if in.expectedError != nil {
+					Expect(err).To(MatchError(err))
+				} else {
+					Expect(err).To(BeNil())
+					Expect(session.Email).To(Equal(in.expectedValue))
+				}
+			},
+			Entry("unverified email denied", emailsTableInput{
+				expectedError:        errors.New("user email is not verified"),
+				allowUnverifiedEmail: false,
+			}),
+			Entry("unverified email allowed", emailsTableInput{
+				expectedError:        nil,
+				expectedValue:        "foo@bar.com",
+				allowUnverifiedEmail: true,
+			}),
+		)
+	})
 
-	session := &SessionState{AccessToken: "imaginary_access_token"}
-	email, err := p.GetEmailAddress(session)
-	assert.NotEqual(t, nil, err)
-	assert.Equal(t, "", email)
-}
+	Context("when filtering on gitlab entities (groups and projects)", func() {
+		type entitiesTableInput struct {
+			expectedValue []string
+			projects      []string
+			groups        []string
+		}
+
+		DescribeTable("should return expected results",
+			func(in entitiesTableInput) {
+				p.AllowUnverifiedEmail = true
+				session := &sessions.SessionState{AccessToken: "gitlab_access_token"}
+
+				err := p.AddProjects(in.projects)
+				Expect(err).To(BeNil())
+				p.SetProjectScope()
+
+				if len(in.groups) > 0 {
+					p.Groups = in.groups
+				}
+
+				err = p.EnrichSession(context.Background(), session)
+
+				Expect(err).To(BeNil())
+				Expect(session.Groups).To(Equal(in.expectedValue))
+			},
+			Entry("project membership valid on group project", entitiesTableInput{
+				expectedValue: []string{"project:my_group/my_project"},
+				projects:      []string{"my_group/my_project"},
+			}),
+			Entry("project membership invalid on group project, insufficient access level level", entitiesTableInput{
+				expectedValue: nil,
+				projects:      []string{"my_group/my_project=40"},
+			}),
+			Entry("project membership valid on personnal project", entitiesTableInput{
+				expectedValue: []string{"project:my_profile/my_personal_project"},
+				projects:      []string{"my_profile/my_personal_project"},
+			}),
+			Entry("project membership invalid on personnal project, insufficient access level", entitiesTableInput{
+				expectedValue: nil,
+				projects:      []string{"my_profile/my_personal_project=40"},
+			}),
+			Entry("project membership invalid", entitiesTableInput{
+				expectedValue: nil,
+				projects:      []string{"my_group/my_bad_project"},
+			}),
+			Entry("group membership valid", entitiesTableInput{
+				expectedValue: []string{"group:foo"},
+				groups:        []string{"foo"},
+			}),
+			Entry("groups and projects", entitiesTableInput{
+				expectedValue: []string{"group:foo", "group:baz", "project:my_group/my_project", "project:my_profile/my_personal_project"},
+				groups:        []string{"foo", "baz"},
+				projects:      []string{"my_group/my_project", "my_profile/my_personal_project"},
+			}),
+			Entry("archived projects", entitiesTableInput{
+				expectedValue: nil,
+				groups:        []string{},
+				projects:      []string{"my_group/my_archived_project"},
+			}),
+		)
+
+	})
+
+	Context("when generating group list from multiple kind", func() {
+		type entitiesTableInput struct {
+			projects []string
+			groups   []string
+		}
+
+		DescribeTable("should prefix entities with group kind", func(in entitiesTableInput) {
+			p.Groups = in.groups
+			err := p.AddProjects(in.projects)
+			Expect(err).To(BeNil())
+
+			all := p.PrefixAllowedGroups()
+
+			Expect(len(all)).To(Equal(len(in.projects) + len(in.groups)))
+		},
+			Entry("simple test case", entitiesTableInput{
+				projects: []string{"my_group/my_project", "my_group/my_other_project"},
+				groups:   []string{"mygroup", "myothergroup"},
+			}),
+			Entry("projects only", entitiesTableInput{
+				projects: []string{"my_group/my_project", "my_group/my_other_project"},
+				groups:   []string{},
+			}),
+			Entry("groups only", entitiesTableInput{
+				projects: []string{},
+				groups:   []string{"mygroup", "myothergroup"},
+			}),
+		)
+	})
+})

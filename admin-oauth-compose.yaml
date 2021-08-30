@@ -1,0 +1,18 @@
+version: "3.4"
+services:
+  admin-oauth-proxy:
+    container_name: admin-oauth-proxy
+    image: containerregistrydev.azurecr.io/admin-oauth-proxy:local
+    build:
+      args:
+        REGISTRY: "containerregistrydev.azurecr.io"
+      context: .
+    volumes:
+    - ./pipeline/oauth2_proxy.local.cfg:/etc/config/oauth2_proxy.cfg
+    ports:
+    - 4180:4180
+    command:
+    - "--config=etc/config/oauth2_proxy.cfg"
+    #RUN export HTTP_PROXY=127.0.0.1:8888
+    environment: #expect to run fiddler
+    - HTTP_PROXY=127.0.0.1:8888

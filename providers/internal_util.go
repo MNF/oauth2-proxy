@@ -1,11 +1,12 @@
 package providers
 
 import (
-	"log"
+	"context"
 	"net/http"
 	"net/url"
 
-	"oauth2_proxy/api"
+	"github.com/oauth2-proxy/oauth2-proxy/v7/pkg/logger"
+	"github.com/oauth2-proxy/oauth2-proxy/v7/pkg/requests"
 )
 
 // stripToken is a helper function to obfuscate "access_token"
@@ -23,14 +24,14 @@ func stripToken(endpoint string) string {
 func stripParam(param, endpoint string) string {
 	u, err := url.Parse(endpoint)
 	if err != nil {
-		log.Printf("error attempting to strip %s: %s", param, err)
+		logger.Errorf("error attempting to strip %s: %s", param, err)
 		return endpoint
 	}
 
 	if u.RawQuery != "" {
 		values, err := url.ParseQuery(u.RawQuery)
 		if err != nil {
-			log.Printf("error attempting to strip %s: %s", param, err)
+			logger.Errorf("error attempting to strip %s: %s", param, err)
 			return u.String()
 		}
 
@@ -45,29 +46,31 @@ func stripParam(param, endpoint string) string {
 }
 
 // validateToken returns true if token is valid
-func validateToken(p Provider, access_token string, header http.Header) bool {
-	if access_token == "" || p.Data().ValidateURL == nil {
+func validateToken(ctx context.Context, p Provider, accessToken string, header http.Header) bool {
+	if accessToken == "" || p.Data().ValidateURL == nil || p.Data().ValidateURL.String() == "" {
 		return false
 	}
 	endpoint := p.Data().ValidateURL.String()
 	if len(header) == 0 {
-		params := url.Values{"access_token": {access_token}}
+		params := url.Values{"access_token": {accessToken}}
 		endpoint = endpoint + "?" + params.Encode()
 	}
-	resp, err := api.RequestUnparsedResponse(endpoint, header)
-	if err != nil {
-		// log.Printf("GET %s", stripToken(endpoint))
-		//log.Printf("token validation request failed: %s", err)
+
+	result := requests.New(endpoint).
+		WithContext(ctx).
+		WithHeaders(header).
+		Do()
+	if result.Error() != nil {
+		logger.Errorf("GET %s", stripToken(endpoint))
+		logger.Errorf("token validation request failed: %s", result.Error())
 		return false
 	}
 
-	//body, _ := ioutil.ReadAll(resp.Body)
-	//resp.Body.Close()
-	/// log.Printf("%d GET %s %s", resp.StatusCode, stripToken(endpoint), body)
+	logger.LogTrace("%d GET %s %s", result.StatusCode(), stripToken(endpoint), result.Body())
 
-	if resp.StatusCode == 200 {
+	if result.StatusCode() == 200 {
 		return true
 	}
-	log.Printf("token validation request failed: status %d - %s", resp.StatusCode, endpoint)
+	logger.Errorf("token validation request failed: status %d - %s", result.StatusCode(), stripToken(endpoint));//  result.Body())
 	return false
 }

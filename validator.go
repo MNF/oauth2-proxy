@@ -3,24 +3,30 @@ package main
 import (
 	"encoding/csv"
 	"fmt"
-	"log"
+	"io"
 	"os"
 	"strings"
 	"sync/atomic"
 	"unsafe"
+
+	"github.com/oauth2-proxy/oauth2-proxy/v7/pkg/logger"
 )
 
+// UserMap holds information from the authenticated emails file
 type UserMap struct {
 	usersFile string
 	m         unsafe.Pointer
 }
 
+// NewUserMap parses the authenticated emails file into a new UserMap
+//
+// TODO (@NickMeves): Audit usage of `unsafe.Pointer` and potentially refactor
 func NewUserMap(usersFile string, done <-chan bool, onUpdate func()) *UserMap {
 	um := &UserMap{usersFile: usersFile}
 	m := make(map[string]bool)
-	atomic.StorePointer(&um.m, unsafe.Pointer(&m))
+	atomic.StorePointer(&um.m, unsafe.Pointer(&m)) // #nosec G103
 	if usersFile != "" {
-		// log.Printf("using authenticated emails file %s", usersFile)
+		logger.LogTrace("using authenticated emails file %s", usersFile)
 		WatchForUpdates(usersFile, done, func() {
 			um.LoadAuthenticatedEmailsFile()
 			onUpdate()
@@ -30,25 +36,33 @@ func NewUserMap(usersFile string, done <-chan bool, onUpdate func()) *UserMap {
 	return um
 }
 
+// IsValid checks if an email is allowed
 func (um *UserMap) IsValid(email string) (result bool) {
 	m := *(*map[string]bool)(atomic.LoadPointer(&um.m))
 	_, result = m[email]
 	return
 }
 
+// LoadAuthenticatedEmailsFile loads the authenticated emails file from disk
+// and parses the contents as CSV
 func (um *UserMap) LoadAuthenticatedEmailsFile() {
 	r, err := os.Open(um.usersFile)
 	if err != nil {
-		log.Fatalf("failed opening authenticated-emails-file=%q, %s", um.usersFile, err)
+		logger.Fatalf("failed opening authenticated-emails-file=%q, %s", um.usersFile, err)
 	}
-	defer r.Close()
-	csv_reader := csv.NewReader(r)
-	csv_reader.Comma = ','
-	csv_reader.Comment = '#'
-	csv_reader.TrimLeadingSpace = true
-	records, err := csv_reader.ReadAll()
+	defer func(c io.Closer) {
+		cerr := c.Close()
+		if cerr != nil {
+			logger.Fatalf("Error closing authenticated emails file: %s", cerr)
+		}
+	}(r)
+	csvReader := csv.NewReader(r)
+	csvReader.Comma = ','
+	csvReader.Comment = '#'
+	csvReader.TrimLeadingSpace = true
+	records, err := csvReader.ReadAll()
 	if err != nil {
-		log.Printf("error reading authenticated-emails-file=%q, %s", um.usersFile, err)
+		logger.Errorf("error reading authenticated-emails-file=%q, %s", um.usersFile, err)
 		return
 	}
 	updated := make(map[string]bool)
@@ -56,7 +70,7 @@ func (um *UserMap) LoadAuthenticatedEmailsFile() {
 		address := strings.ToLower(strings.TrimSpace(r[0]))
 		updated[address] = true
 	}
-	atomic.StorePointer(&um.m, unsafe.Pointer(&updated))
+	atomic.StorePointer(&um.m, unsafe.Pointer(&updated)) // #nosec G103
 }
 
 func newValidatorImpl(domains []string, usersFile string,
@@ -91,6 +105,7 @@ func newValidatorImpl(domains []string, usersFile string,
 	return validator
 }
 
+// NewValidator constructs a function to validate email addresses
 func NewValidator(domains []string, usersFile string) func(string) bool {
 	return newValidatorImpl(domains, usersFile, nil, func() {})
 }

@@ -1,0 +1,75 @@
+Kind: kubebot.values/v1
+deployment:
+  image: b2c-oauthproxy
+  replicas: 1
+  livenessProbe: /ping
+  port: 4180
+  env:
+    - name: ENVIRONMENT
+      value: development
+    - name: SITE
+      value: wjnz
+  #Follow     https://stackoverflow.com/questions/61148502/how-can-i-debug-oauth2-proxy-when-connecting-to-azure-b2c
+  #oauth2_proxy.cfg is a secret
+  #from https://docs.microsoft.com/en-us/azure/active-directory-b2c/openid-connect#send-authentication-requests and https://docs.microsoft.com/en-us/azure/active-directory-b2c/tutorial-register-applications?tabs=app-reg-ga#create-a-client-secret
+  #Wcs-dev-nz application
+  #DevNz secret
+  #To generate a strong cookie secret use  https://www.tutorialspoint.com/execute_python_online.php   'import os,base64; print(base64.urlsafe_b64encode(os.urandom(16)).decode())'
+  args:
+    - --config=/etc/config/oauth2_proxy.cfg
+    #- --upstream=
+    - --provider=oidc
+    - --cookie-name=b2c-oauthproxy
+    - --cookie-secure=true
+    - --cookie-expire=12h0m
+    #   - --cookie-refresh=10h30m//disable to have session_cookie_minimal
+    - --cookie-domain=devci.webjet.co.nz,devtest01.webjet.co.nz,devtest02.webjet.co.nz
+    - --email-domain=*
+    - --whitelist-domain=.webjet.com.au,.webjet.co.nz,webjetb2cdev.b2clogin.com
+    - --http-address=http://0.0.0.0:4180
+    #- "-azure-tenant=c5b28ff4-f360-405b-85d0-8a87b5783d3b" #https://techcommunity.microsoft.com/t5/office-365/how-do-you-find-the-tenant-id/m-p/89018
+    #- "-oidc-issuer-url=https://<tenant>.b2clogin.com/tfp/<app-guid>/b2c_1_manager_signup/"
+    #- "-oidc-issuer-url=https://webjetb2cdev.b2clogin.com/tfp/c5b28ff4-f360-405b-85d0-8a87b5783d3b/b2c_1_manager_signup/"
+    #using clientId as oidc_issuer_url satifies validation in callback/redeem stage (don't need to set useinsecure_oidc_skip_issuer_verification=true)
+    - --oidc-issuer-url=https://login.dev.webjet.co.nz/c5b28ff4-f360-405b-85d0-8a87b5783d3b/v2.0/
+    - --skip-oidc-discovery=true
+    - --login-url=https://login.dev.webjet.co.nz/login.dev.webjet.co.nz/B2C_1A_signin_TSA_Dev_NZ/oauth2/v2.0/authorize
+    - --redeem-url=https://login.dev.webjet.co.nz/login.dev.webjet.co.nz/B2C_1A_signin_TSA_Dev_NZ/oauth2/v2.0/token
+    - --oidc-jwks-url=https://login.dev.webjet.co.nz/login.dev.webjet.co.nz/B2C_1A_signin_TSA_Dev_NZ/discovery/v2.0/keys
+    - --approval-prompt=
+    - --skip-provider-button=true
+    - --redirect-url=/oauth2/callback
+
+    # internal oauth-proxy generates response_type=id_token+code&scope=openid
+    #b2c generates &response_type=code &scope=openid+offline_access  TODO: is it good?
+    #--scope=https://<myspacename>.onmicrosoft.com/<myapiname>/read wcs-dev or wcs-dev-nz
+    # offline_access not neeeded as we do not use refresh tokens
+    - --scope=https://webjetb2cdev.onmicrosoft.com/wcs-dev-nz/customer.member openid
+    - --pass-user-headers=true
+    - --session-cookie-minimal=false
+    - --user-id-claim=signInName #  To get around missing "email" claim, may use the oid instead
+    #- --pass-groups=true consider --oidc-groups-claim --oidc-email-claim
+    #  --pass-authorization-header:	pass OIDC IDToken to upstream via Authorization Bearer header
+    #-https://oauth2-proxy.github.io/oauth2-proxy/docs/configuration/overview#logging-configuration
+    - --standard-logging=true #needs to enable in prod and fine tune by minimal-log-level
+    - --minimal-log-level=INFO # for debugging change to TRACE see https://pkg.go.dev/github.com/juju/loggo#Level
+    - --auth-logging=false # for debugging change to true
+    - --request-logging=false # for debugging change to true
+#    use --session-store-type=redis when expecting large sessions/OIDC tokens (e.g. with MS Azure).
+#    - "-session-store-type=redis"
+#    - "-redis-connection-url=redis://redis:6379"
+# --set-xauthrequest ??
+
+secret:
+  path: /etc/config
+# we are using nginx without ingress
+# ingress:
+# ssi: on
+# rules:
+# - hostname: services.dev.webjet.co.nz
+# paths:
+# - path: /ota-b2c-oauth
+# - path: /web
+# - path: /web/customer/travellerprofile
+# - path: /web/customer
+

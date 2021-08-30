@@ -1,0 +1,47 @@
+name: ota-b2c Deployment-Dev ONLY
+
+on:
+  push:
+    branches: [develop]
+
+env:
+  NAMESPACE: serviceportal
+  IMAGENAME: b2c-oauthproxy
+
+jobs:
+  build:
+    env:
+      DEPLOY_DEV_AU: true
+      DEPLOY_DEV_NZ: true
+     # DEPLOY_PROD: false
+    runs-on: [webjet, linux]
+    timeout-minutes: 20 #from https://stackoverflow.com/questions/59073731/set-default-timeout-on-github-action-pipeline
+
+    steps:
+      - uses: actions/checkout@v2
+      - uses: webjet/action-kubernetes-init@v1
+        with:
+          env-json-base64: ${{ secrets.JSONDATA64 }}
+      - name: Notify Teams
+        uses: webjet/action-msteams@v1
+        with:
+          webhook-uri: ${{ secrets.SERVICEPORTAL_MSTEAMS_WEBHOOK  }}
+
+      - uses: webjet/action-build-image@v1
+      - uses: webjet/action-push-image@v1
+
+      - name: Deploy DEV WJAU
+        if: (env.DEPLOY_DEV_AU != 'false' )
+        uses: webjet/action-kubebot-deploy@v1
+        with:
+          environment: "dev"
+          service: "b2c-oauthproxy-wjau"
+          manifest: "pipeline/ota-b2c/dev-wjau.yaml"
+
+      - name: Deploy DEV WJNZ
+        if: (env.DEPLOY_DEV_NZ != 'false' )
+        uses: webjet/action-kubebot-deploy@v1
+        with:
+          environment: "dev"
+          service: "b2c-oauthproxy-wjnz"
+          manifest: "pipeline/ota-b2c/dev-wjnz.yaml"

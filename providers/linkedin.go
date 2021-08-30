@@ -1,63 +1,87 @@
 package providers
 
 import (
+	"context"
 	"errors"
-	"fmt"
 	"net/http"
 	"net/url"
 
-	"github.com/outlook/oauth2_proxy/api"
+	"github.com/oauth2-proxy/oauth2-proxy/v7/pkg/apis/sessions"
+	"github.com/oauth2-proxy/oauth2-proxy/v7/pkg/requests"
 )
 
+// LinkedInProvider represents an LinkedIn based Identity Provider
 type LinkedInProvider struct {
 	*ProviderData
 }
 
+var _ Provider = (*LinkedInProvider)(nil)
+
+const (
+	linkedinProviderName = "LinkedIn"
+	linkedinDefaultScope = "r_emailaddress r_basicprofile"
+)
+
+var (
+	// Default Login URL for LinkedIn.
+	// Pre-parsed URL of https://www.linkedin.com/uas/oauth2/authorization.
+	linkedinDefaultLoginURL = &url.URL{
+		Scheme: "https",
+		Host:   "www.linkedin.com",
+		Path:   "/uas/oauth2/authorization",
+	}
+
+	// Default Redeem URL for LinkedIn.
+	// Pre-parsed URL of https://www.linkedin.com/uas/oauth2/accessToken.
+	linkedinDefaultRedeemURL = &url.URL{
+		Scheme: "https",
+		Host:   "www.linkedin.com",
+		Path:   "/uas/oauth2/accessToken",
+	}
+
+	// Default Profile URL for LinkedIn.
+	// Pre-parsed URL of https://www.linkedin.com/v1/people/~/email-address.
+	linkedinDefaultProfileURL = &url.URL{
+		Scheme: "https",
+		Host:   "www.linkedin.com",
+		Path:   "/v1/people/~/email-address",
+	}
+)
+
+// NewLinkedInProvider initiates a new LinkedInProvider
 func NewLinkedInProvider(p *ProviderData) *LinkedInProvider {
-	p.ProviderName = "LinkedIn"
-	if p.LoginURL.String() == "" {
-		p.LoginURL = &url.URL{Scheme: "https",
-			Host: "www.linkedin.com",
-			Path: "/uas/oauth2/authorization"}
-	}
-	if p.RedeemURL.String() == "" {
-		p.RedeemURL = &url.URL{Scheme: "https",
-			Host: "www.linkedin.com",
-			Path: "/uas/oauth2/accessToken"}
-	}
-	if p.ProfileURL.String() == "" {
-		p.ProfileURL = &url.URL{Scheme: "https",
-			Host: "www.linkedin.com",
-			Path: "/v1/people/~/email-address"}
-	}
-	if p.ValidateURL.String() == "" {
-		p.ValidateURL = p.ProfileURL
-	}
-	if p.Scope == "" {
-		p.Scope = "r_emailaddress r_basicprofile"
-	}
+	p.setProviderDefaults(providerDefaults{
+		name:        linkedinProviderName,
+		loginURL:    linkedinDefaultLoginURL,
+		redeemURL:   linkedinDefaultRedeemURL,
+		profileURL:  linkedinDefaultProfileURL,
+		validateURL: linkedinDefaultProfileURL,
+		scope:       linkedinDefaultScope,
+	})
 	return &LinkedInProvider{ProviderData: p}
 }
 
-func getLinkedInHeader(access_token string) http.Header {
-	header := make(http.Header)
-	header.Set("Accept", "application/json")
-	header.Set("x-li-format", "json")
-	header.Set("Authorization", fmt.Sprintf("Bearer %s", access_token))
-	return header
+func makeLinkedInHeader(accessToken string) http.Header {
+	// extra headers required by the LinkedIn API when making authenticated requests
+	extraHeaders := map[string]string{
+		acceptHeader:  acceptApplicationJSON,
+		"x-li-format": "json",
+	}
+	return makeAuthorizationHeader(tokenTypeBearer, accessToken, extraHeaders)
 }
 
-func (p *LinkedInProvider) GetEmailAddress(s *SessionState) (string, error) {
+// GetEmailAddress returns the Account email address
+func (p *LinkedInProvider) GetEmailAddress(ctx context.Context, s *sessions.SessionState) (string, error) {
 	if s.AccessToken == "" {
 		return "", errors.New("missing access token")
 	}
-	req, err := http.NewRequest("GET", p.ProfileURL.String()+"?format=json", nil)
-	if err != nil {
-		return "", err
-	}
-	req.Header = getLinkedInHeader(s.AccessToken)
 
-	json, err := api.Request(req)
+	requestURL := p.ProfileURL.String() + "?format=json"
+	json, err := requests.New(requestURL).
+		WithContext(ctx).
+		WithHeaders(makeLinkedInHeader(s.AccessToken)).
+		Do().
+		UnmarshalJSON()
 	if err != nil {
 		return "", err
 	}
@@ -69,6 +93,7 @@ func (p *LinkedInProvider) GetEmailAddress(s *SessionState) (string, error) {
 	return email, nil
 }
 
-func (p *LinkedInProvider) ValidateSessionState(s *SessionState) bool {
-	return validateToken(p, s.AccessToken, getLinkedInHeader(s.AccessToken))
+// ValidateSessionState validates the AccessToken
+func (p *LinkedInProvider) ValidateSession(ctx context.Context, s *sessions.SessionState) bool {
+	return validateToken(ctx, p, s.AccessToken, makeLinkedInHeader(s.AccessToken))
 }

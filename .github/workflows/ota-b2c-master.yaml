@@ -1,0 +1,62 @@
+name: ota-b2c Deployment-Dev and Prod
+
+on:
+  push:
+    branches: [master]
+
+env:
+  NAMESPACE: serviceportal
+  IMAGENAME: b2c-oauthproxy
+
+jobs:
+  build:
+    env:
+      DEPLOY_DEV: true
+      DEPLOY_PROD: true
+    runs-on: [webjet, linux]
+    timeout-minutes: 20 #from https://stackoverflow.com/questions/59073731/set-default-timeout-on-github-action-pipeline
+
+    steps:
+      - uses: actions/checkout@v2
+      - uses: webjet/action-kubernetes-init@v1
+        with:
+          env-json-base64: ${{ secrets.JSONDATA64 }}
+      - name: Notify Teams
+        uses: webjet/action-msteams@v1
+        with:
+          webhook-uri: ${{ secrets.SERVICEPORTAL_MSTEAMS_WEBHOOK  }}
+
+      - uses: webjet/action-build-image@v1
+      - uses: webjet/action-push-image@v1
+
+      - name: Deploy DEV WJAU
+        if: (env.DEPLOY_DEV != 'false' )
+        uses: webjet/action-kubebot-deploy@v1
+        with:
+          environment: "dev"
+          service: "b2c-oauthproxy-wjau"
+          manifest: "pipeline/ota-b2c/dev-wjau.yaml"
+
+      - name: Deploy DEV WJNZ
+        if: (env.DEPLOY_DEV != 'false' )
+        uses: webjet/action-kubebot-deploy@v1
+        with:
+          environment: "dev"
+          service: "b2c-oauthproxy-wjnz"
+          manifest: "pipeline/ota-b2c/dev-wjnz.yaml"
+
+      - name: Deploy PROD WJAU
+        if: ( github.event_name != 'workflow_dispatch' && env.DEPLOY_PROD != 'false' ) || ( github.event_name == 'workflow_dispatch' && github.event.inputs.deployToProd == 'true' )
+        uses: webjet/action-kubebot-deploy@v1
+        with:
+          environment: "prod"
+          service: "b2c-oauthproxy-wjau"
+          manifest: "pipeline/ota-b2c/prod-wjau.yaml"
+
+      - name: Deploy PROD WJNZ
+        if: ( github.event_name != 'workflow_dispatch' && env.DEPLOY_PROD != 'false' ) || ( github.event_name == 'workflow_dispatch' && github.event.inputs.deployToProd == 'true' )
+        uses: webjet/action-kubebot-deploy@v1
+        with:
+          environment: "prod"
+          service: "b2c-oauthproxy-wjnz"
+          manifest: "pipeline/ota-b2c/prod-wjnz.yaml"

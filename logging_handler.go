@@ -4,12 +4,13 @@
 package main
 
 import (
-	"fmt"
-	"io"
+	"bufio"
+	"errors"
 	"net"
 	"net/http"
-	"net/url"
 	"time"
+
+	"github.com/oauth2-proxy/oauth2-proxy/v7/pkg/logger"
 )
 
 // responseLogger is wrapper of http.ResponseWriter that keeps track of its HTTP status
@@ -22,10 +23,21 @@ type responseLogger struct {
 	authInfo string
 }
 
+// Header returns the ResponseWriter's Header
 func (l *responseLogger) Header() http.Header {
 	return l.w.Header()
 }
 
+// Support Websocket
+func (l *responseLogger) Hijack() (rwc net.Conn, buf *bufio.ReadWriter, err error) {
+	if hj, ok := l.w.(http.Hijacker); ok {
+		return hj.Hijack()
+	}
+	return nil, nil, errors.New("http.Hijacker is not available on writer")
+}
+
+// ExtractGAPMetadata extracts and removes GAP headers from the ResponseWriter's
+// Header
 func (l *responseLogger) ExtractGAPMetadata() {
 	upstream := l.w.Header().Get("GAP-Upstream-Address")
 	if upstream != "" {
@@ -39,6 +51,7 @@ func (l *responseLogger) ExtractGAPMetadata() {
 	}
 }
 
+// Write writes the response using the ResponseWriter
 func (l *responseLogger) Write(b []byte) (int, error) {
 	if l.status == 0 {
 		// The status will be StatusOK if WriteHeader has not been called yet
@@ -50,83 +63,46 @@ func (l *responseLogger) Write(b []byte) (int, error) {
 	return size, nil
 }
 
+// WriteHeader writes the status code for the Response
 func (l *responseLogger) WriteHeader(s int) {
 	l.ExtractGAPMetadata()
 	l.w.WriteHeader(s)
 	l.status = s
 }
 
+// Status returns the response status code
 func (l *responseLogger) Status() int {
 	return l.status
 }
 
+// Size returns the response size
 func (l *responseLogger) Size() int {
 	return l.size
 }
 
-// loggingHandler is the http.Handler implementation for LoggingHandlerTo and its friends
-type loggingHandler struct {
-	writer  io.Writer
-	handler http.Handler
-	enabled bool
+// Flush sends any buffered data to the client
+func (l *responseLogger) Flush() {
+	if flusher, ok := l.w.(http.Flusher); ok {
+		flusher.Flush()
+	}
 }
 
-func LoggingHandler(out io.Writer, h http.Handler, v bool) http.Handler {
-	return loggingHandler{out, h, v}
+// loggingHandler is the http.Handler implementation for LoggingHandler
+type loggingHandler struct {
+	handler http.Handler
+}
+
+// LoggingHandler provides an http.Handler which logs requests to the HTTP server
+func LoggingHandler(h http.Handler) http.Handler {
+	return loggingHandler{
+		handler: h,
+	}
 }
 
 func (h loggingHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	t := time.Now()
 	url := *req.URL
-	logger := &responseLogger{w: w}
-	h.handler.ServeHTTP(logger, req)
-	if !h.enabled {
-		return
-	}
-	logLine := buildLogLine(logger.authInfo, logger.upstream, req, url, t, logger.Status(), logger.Size())
-	h.writer.Write(logLine)
-}
-
-// Log entry for req similar to Apache Common Log Format.
-// ts is the timestamp with which the entry should be logged.
-// status, size are used to provide the response HTTP status and size.
-func buildLogLine(username, upstream string, req *http.Request, url url.URL, ts time.Time, status int, size int) []byte {
-	if username == "" {
-		username = "-"
-	}
-	if upstream == "" {
-		upstream = "-"
-	}
-	if url.User != nil && username == "-" {
-		if name := url.User.Username(); name != "" {
-			username = name
-		}
-	}
-
-	client := req.Header.Get("X-Real-IP")
-	if client == "" {
-		client = req.RemoteAddr
-	}
-
-	if c, _, err := net.SplitHostPort(client); err == nil {
-		client = c
-	}
-
-	duration := float64(time.Now().Sub(ts)) / float64(time.Second)
-
-	logLine := fmt.Sprintf("%s - %s [%s] %s %s %s %q %s %q %d %d %0.3f\n",
-		client,
-		username,
-		ts.Format("02/Jan/2006:15:04:05 -0700"),
-		req.Host,
-		req.Method,
-		upstream,
-		url.RequestURI(),
-		req.Proto,
-		req.UserAgent(),
-		status,
-		size,
-		duration,
-	)
-	return []byte(logLine)
+	responseLogger := &responseLogger{w: w}
+	h.handler.ServeHTTP(responseLogger, req)
+	logger.PrintReq(responseLogger.authInfo, responseLogger.upstream, req, url, t, responseLogger.Status(), responseLogger.Size())
 }

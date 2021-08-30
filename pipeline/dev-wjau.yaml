@@ -20,13 +20,15 @@ deployment:
     - "-email-domain=*"
     - "-http-address=http://0.0.0.0:4180"
     - "-azure-tenant=5de0e68c-0afd-4a67-b089-31f168aa4ca0"
-    - "-pass-groups=true"
+    - --skip-oidc-discovery="true"
     - "-approval-prompt="
     - "-skip-provider-button=true"
     - "-redirect-url=https://services.dev.webjet.com.au/oauth2/callback"
     - "-pass-user-headers=true"
-    - "-pass-groups=true"
-
+    - --standard-logging=true    #needs to enable in prod and fine tune by minimal-log-level
+    - --minimal-log-level=INFO  # for debugging change to TRACE see https://pkg.go.dev/github.com/juju/loggo#Level
+    - --auth-logging=false  # for debugging change to true
+    - --request-logging=false # for debugging change to true
 secret:
   path: /etc/config
 

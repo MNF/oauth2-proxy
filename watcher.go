@@ -3,46 +3,55 @@
 package main
 
 import (
-	"log"
 	"os"
 	"path/filepath"
 	"time"
 
-	"gopkg.in/fsnotify.v1"
+	"github.com/fsnotify/fsnotify"
+
+	"github.com/oauth2-proxy/oauth2-proxy/v7/pkg/logger"
 )
 
+// WaitForReplacement waits for a file to exist on disk and then starts a watch
+// for the file
 func WaitForReplacement(filename string, op fsnotify.Op,
 	watcher *fsnotify.Watcher) {
-	const sleep_interval = 50 * time.Millisecond
+	const sleepInterval = 50 * time.Millisecond
 
 	// Avoid a race when fsnofity.Remove is preceded by fsnotify.Chmod.
 	if op&fsnotify.Chmod != 0 {
-		time.Sleep(sleep_interval)
+		time.Sleep(sleepInterval)
 	}
 	for {
 		if _, err := os.Stat(filename); err == nil {
 			if err := watcher.Add(filename); err == nil {
-				log.Printf("watching resumed for %s", filename)
+				logger.Printf("watching resumed for %s", filename)
 				return
 			}
 		}
-		time.Sleep(sleep_interval)
+		time.Sleep(sleepInterval)
 	}
 }
 
+// WatchForUpdates performs an action every time a file on disk is updated
 func WatchForUpdates(filename string, done <-chan bool, action func()) {
 	filename = filepath.Clean(filename)
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
-		log.Fatal("failed to create watcher for ", filename, ": ", err)
+		logger.Fatal("failed to create watcher for ", filename, ": ", err)
 	}
 	go func() {
-		defer watcher.Close()
+		defer func(w *fsnotify.Watcher) {
+			cerr := w.Close()
+			if cerr != nil {
+				logger.Fatalf("error closing watcher: %v", err)
+			}
+		}(watcher)
 		for {
 			select {
-			case _ = <-done:
-				log.Printf("Shutting down watcher for: %s", filename)
-				break
+			case <-done:
+				logger.Printf("Shutting down watcher for: %s", filename)
+				return
 			case event := <-watcher.Events:
 				// On Arch Linux, it appears Chmod events precede Remove events,
 				// which causes a race between action() and the coming Remove event.
@@ -50,19 +59,22 @@ func WatchForUpdates(filename string, done <-chan bool, action func()) {
 				// UserMap.LoadAuthenticatedEmailsFile()) crashes when the file
 				// can't be opened.
 				if event.Op&(fsnotify.Remove|fsnotify.Rename|fsnotify.Chmod) != 0 {
-					log.Printf("watching interrupted on event: %s", event)
-					watcher.Remove(filename)
+					logger.Printf("watching interrupted on event: %s", event)
+					err = watcher.Remove(filename)
+					if err != nil {
+						logger.Printf("error removing watcher on %s: %v", filename, err)
+					}
 					WaitForReplacement(filename, event.Op, watcher)
 				}
-				log.Printf("reloading after event: %s", event)
+				logger.Printf("reloading after event: %s", event)
 				action()
-			case err := <-watcher.Errors:
-				log.Printf("error watching %s: %s", filename, err)
+			case err = <-watcher.Errors:
+				logger.Errorf("error watching %s: %s", filename, err)
 			}
 		}
 	}()
 	if err = watcher.Add(filename); err != nil {
-		log.Fatal("failed to add ", filename, " to watcher: ", err)
+		logger.Fatal("failed to add ", filename, " to watcher: ", err)
 	}
-	log.Printf("watching %s for updates", filename)
+	logger.Printf("watching %s for updates", filename)
 }

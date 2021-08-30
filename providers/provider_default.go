@@ -2,129 +2,141 @@ package providers
 
 import (
 	"bytes"
-	"encoding/json"
+	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
-	"log"
-	"net/http"
 	"net/url"
-	"oauth2_proxy/cookie"
+	"time"
+
+	"github.com/oauth2-proxy/oauth2-proxy/v7/pkg/apis/middleware"
+	"github.com/oauth2-proxy/oauth2-proxy/v7/pkg/apis/sessions"
+	"github.com/oauth2-proxy/oauth2-proxy/v7/pkg/requests"
 )
 
-func (p *ProviderData) Redeem(redirectURL, code string) (s *SessionState, err error) {
+var (
+	// ErrNotImplemented is returned when a provider did not override a default
+	// implementation method that doesn't have sensible defaults
+	ErrNotImplemented = errors.New("not implemented")
+
+	// ErrMissingCode is returned when a Redeem method is called with an empty
+	// code
+	ErrMissingCode = errors.New("missing code")
+
+	// ErrMissingIDToken is returned when an oidc.Token does not contain the
+	// extra `id_token` field for an IDToken.
+	ErrMissingIDToken = errors.New("missing id_token")
+
+	// ErrMissingOIDCVerifier is returned when a provider didn't set `Verifier`
+	// but an attempt to call `Verifier.Verify` was about to be made.
+	ErrMissingOIDCVerifier = errors.New("oidc verifier is not configured")
+
+	_ Provider = (*ProviderData)(nil)
+)
+
+// Redeem provides a default implementation of the OAuth2 token redemption process
+func (p *ProviderData) Redeem(ctx context.Context, redirectURL, code string) (*sessions.SessionState, error) {
 	if code == "" {
-		err = errors.New("missing code")
-		return
+		return nil, ErrMissingCode
+	}
+	clientSecret, err := p.GetClientSecret()
+	if err != nil {
+		return nil, err
 	}
 
 	params := url.Values{}
 	params.Add("redirect_uri", redirectURL)
 	params.Add("client_id", p.ClientID)
-	if p.ClientSecret != "" {
-		params.Add("client_secret", p.ClientSecret)
-	}
+	params.Add("client_secret", clientSecret)
 	params.Add("code", code)
 	params.Add("grant_type", "authorization_code")
 	if p.ProtectedResource != nil && p.ProtectedResource.String() != "" {
 		params.Add("resource", p.ProtectedResource.String())
 	}
 
-	var req *http.Request
-	req, err = http.NewRequest("POST", p.RedeemURL.String(), bytes.NewBufferString(params.Encode()))
-	if err != nil {
-		return
-	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-
-	var resp *http.Response
-	resp, c_err := http.DefaultClient.Do(req)
-	var body []byte
-	body, b_err := ioutil.ReadAll(resp.Body)
-	resp.Body.Close()
-	if b_err != nil {
-		return
-	}
-	if c_err != nil {
-		log.Printf("headers from failed redemption are %s", resp.Header)
-		//log.Printf("body from failed redemption is %s", body)
-		return nil, c_err
-	}
-
-	if resp.StatusCode != 200 {
-		err = fmt.Errorf("got %d from %q %s", resp.StatusCode, p.RedeemURL.String(), body)
-		return
+	result := requests.New(p.RedeemURL.String()).
+		WithContext(ctx).
+		WithMethod("POST").
+		WithBody(bytes.NewBufferString(params.Encode())).
+		SetHeader("Content-Type", "application/x-www-form-urlencoded").
+		Do()
+	if result.Error() != nil {
+		return nil, result.Error()
 	}
 
 	// blindly try json and x-www-form-urlencoded
 	var jsonResponse struct {
 		AccessToken string `json:"access_token"`
 	}
-	err = json.Unmarshal(body, &jsonResponse)
+	err = result.UnmarshalInto(&jsonResponse)
 	if err == nil {
-		s = &SessionState{
+		return &sessions.SessionState{
 			AccessToken: jsonResponse.AccessToken,
-		}
-		return
+		}, nil
 	}
 
-	var v url.Values
-	v, err = url.ParseQuery(string(body))
+	values, err := url.ParseQuery(string(result.Body()))
 	if err != nil {
-		return
+		return nil, err
 	}
-	if a := v.Get("access_token"); a != "" {
-		s = &SessionState{AccessToken: a}
-	} else {
-		err = fmt.Errorf("no access token found %s", body)
+	if token := values.Get("access_token"); token != "" {
+		created := time.Now()
+		return &sessions.SessionState{AccessToken: token, CreatedAt: &created}, nil
 	}
-	return
+
+	return nil, fmt.Errorf("no access token found %s", result.Body())
 }
 
 // GetLoginURL with typical oauth parameters
 func (p *ProviderData) GetLoginURL(redirectURI, state string) string {
-	var a url.URL
-	a = *p.LoginURL
-	params, _ := url.ParseQuery(a.RawQuery)
-	params.Set("redirect_uri", redirectURI)
-	params.Set("approval_prompt", p.ApprovalPrompt)
-	params.Add("scope", p.Scope)
-	params.Set("client_id", p.ClientID)
-	params.Set("response_type", "code")
-	params.Add("state", state)
-	a.RawQuery = params.Encode()
+	extraParams := url.Values{}
+	a := makeLoginURL(p, redirectURI, state, extraParams)
 	return a.String()
 }
 
-// CookieForSession serializes a session state for storage in a cookie
-func (p *ProviderData) CookieForSession(s *SessionState, c *cookie.Cipher) (string, error) {
-	return s.EncodeSessionState(c)
+// GetEmailAddress returns the Account email address
+// Deprecated: Migrate to EnrichSession
+func (p *ProviderData) GetEmailAddress(_ context.Context, _ *sessions.SessionState) (string, error) {
+	return "", ErrNotImplemented
 }
 
-// SessionFromCookie deserializes a session from a cookie value
-func (p *ProviderData) SessionFromCookie(v string, c *cookie.Cipher) (s *SessionState, err error) {
-	return DecodeSessionState(v, c)
+
+// EnrichSession is called after Redeem to allow providers to enrich session fields
+// such as User, Email, Groups with provider specific API calls.
+func (p *ProviderData) EnrichSession(_ context.Context, _ *sessions.SessionState) error {
+	return nil
 }
 
-func (p *ProviderData) GetEmailAddress(s *SessionState) (string, error) {
-	return "", errors.New("not implemented")
-}
+// Authorize performs global authorization on an authenticated session.
+// This is not used for fine-grained per route authorization rules.
+func (p *ProviderData) Authorize(_ context.Context, s *sessions.SessionState) (bool, error) {
+	if len(p.AllowedGroups) == 0 {
+		return true, nil
+	}
 
-func (p *ProviderData) GetGroups(s *SessionState, f string) (string, error) {
-	return "", errors.New("not implemented")
-}
+	for _, group := range s.Groups {
+		if _, ok := p.AllowedGroups[group]; ok {
+			return true, nil
+		}
+	}
 
-// ValidateGroup validates that the provided email exists in the configured provider
-// email group(s).
-func (p *ProviderData) ValidateGroup(s *SessionState) bool {
-	return true
-}
-
-func (p *ProviderData) ValidateSessionState(s *SessionState) bool {
-	return validateToken(p, s.AccessToken, nil)
-}
-
-// RefreshSessionIfNeeded
-func (p *ProviderData) RefreshSessionIfNeeded(s *SessionState) (bool, error) {
 	return false, nil
+}
+
+// ValidateSession validates the AccessToken
+func (p *ProviderData) ValidateSession(ctx context.Context, s *sessions.SessionState) bool {
+	return validateToken(ctx, p, s.AccessToken, nil)
+}
+
+// RefreshSessionIfNeeded should refresh the user's session if required and
+// do nothing if a refresh is not required
+func (p *ProviderData) RefreshSessionIfNeeded(_ context.Context, _ *sessions.SessionState) (bool, error) {
+	return false, nil
+}
+
+// CreateSessionFromToken converts Bearer IDTokens into sessions
+func (p *ProviderData) CreateSessionFromToken(ctx context.Context, token string) (*sessions.SessionState, error) {
+	if p.Verifier != nil {
+		return middleware.CreateTokenToSessionFunc(p.Verifier.Verify)(ctx, token)
+	}
+	return nil, ErrNotImplemented
 }

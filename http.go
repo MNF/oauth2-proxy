@@ -1,19 +1,26 @@
 package main
 
 import (
+	"context"
 	"crypto/tls"
-	"log"
+	"errors"
 	"net"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/oauth2-proxy/oauth2-proxy/v7/pkg/apis/options"
+	"github.com/oauth2-proxy/oauth2-proxy/v7/pkg/logger"
 )
 
+// Server represents an HTTP server
 type Server struct {
 	Handler http.Handler
-	Opts    *Options
+	Opts    *options.Options
+	stop    chan struct{} // channel for waiting shutdown
 }
 
+// ListenAndServe will serve traffic on HTTP or HTTPS depending on TLS options
 func (s *Server) ListenAndServe() {
 	if s.Opts.TLSKeyFile != "" || s.Opts.TLSCertFile != "" {
 		s.ServeHTTPS()
@@ -22,13 +29,14 @@ func (s *Server) ListenAndServe() {
 	}
 }
 
+// ServeHTTP constructs a net.Listener and starts handling HTTP requests
 func (s *Server) ServeHTTP() {
-	httpAddress := s.Opts.HttpAddress
-	scheme := ""
+	HTTPAddress := s.Opts.HTTPAddress
+	var scheme string
 
-	i := strings.Index(httpAddress, "://")
+	i := strings.Index(HTTPAddress, "://")
 	if i > -1 {
-		scheme = httpAddress[0:i]
+		scheme = HTTPAddress[0:i]
 	}
 
 	var networkType string
@@ -39,29 +47,24 @@ func (s *Server) ServeHTTP() {
 		networkType = scheme
 	}
 
-	slice := strings.SplitN(httpAddress, "//", 2)
+	slice := strings.SplitN(HTTPAddress, "//", 2)
 	listenAddr := slice[len(slice)-1]
 
 	listener, err := net.Listen(networkType, listenAddr)
 	if err != nil {
-		log.Fatalf("FATAL: listen (%s, %s) failed - %s", networkType, listenAddr, err)
+		logger.Fatalf("FATAL: listen (%s, %s) failed - %s", networkType, listenAddr, err)
 	}
-	log.Printf("HTTP: listening on %s", listenAddr)
-
-	server := &http.Server{Handler: s.Handler}
-	err = server.Serve(listener)
-	if err != nil && !strings.Contains(err.Error(), "use of closed network connection") {
-		log.Printf("ERROR: http.Serve() - %s", err)
-	}
-
-	log.Printf("HTTP: closing %s", listener.Addr())
+	logger.Printf("HTTP: listening on %s", listenAddr)
+	s.serve(listener)
+	logger.Printf("HTTP: closing %s", listener.Addr())
 }
 
+// ServeHTTPS constructs a net.Listener and starts handling HTTPS requests
 func (s *Server) ServeHTTPS() {
-	addr := s.Opts.HttpsAddress
+	addr := s.Opts.HTTPSAddress
 	config := &tls.Config{
 		MinVersion: tls.VersionTLS12,
-		MaxVersion: tls.VersionTLS12,
+		MaxVersion: tls.VersionTLS13,
 	}
 	if config.NextProtos == nil {
 		config.NextProtos = []string{"http/1.1"}
@@ -71,24 +74,41 @@ func (s *Server) ServeHTTPS() {
 	config.Certificates = make([]tls.Certificate, 1)
 	config.Certificates[0], err = tls.LoadX509KeyPair(s.Opts.TLSCertFile, s.Opts.TLSKeyFile)
 	if err != nil {
-		log.Fatalf("FATAL: loading tls config (%s, %s) failed - %s", s.Opts.TLSCertFile, s.Opts.TLSKeyFile, err)
+		logger.Fatalf("FATAL: loading tls config (%s, %s) failed - %s", s.Opts.TLSCertFile, s.Opts.TLSKeyFile, err)
 	}
 
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
-		log.Fatalf("FATAL: listen (%s) failed - %s", addr, err)
+		logger.Fatalf("FATAL: listen (%s) failed - %s", addr, err)
 	}
-	log.Printf("HTTPS: listening on %s", ln.Addr())
+	logger.Printf("HTTPS: listening on %s", ln.Addr())
 
 	tlsListener := tls.NewListener(tcpKeepAliveListener{ln.(*net.TCPListener)}, config)
+	s.serve(tlsListener)
+	logger.Printf("HTTPS: closing %s", tlsListener.Addr())
+}
+
+func (s *Server) serve(listener net.Listener) {
 	srv := &http.Server{Handler: s.Handler}
-	err = srv.Serve(tlsListener)
 
-	if err != nil && !strings.Contains(err.Error(), "use of closed network connection") {
-		log.Printf("ERROR: https.Serve() - %s", err)
+	// See https://golang.org/pkg/net/http/#Server.Shutdown
+	idleConnsClosed := make(chan struct{})
+	go func() {
+		<-s.stop // wait notification for stopping server
+
+		// We received an interrupt signal, shut down.
+		if err := srv.Shutdown(context.Background()); err != nil {
+			// Error from closing listeners, or context timeout:
+			logger.Printf("HTTP server Shutdown: %v", err)
+		}
+		close(idleConnsClosed)
+	}()
+
+	err := srv.Serve(listener)
+	if err != nil && !errors.Is(err, http.ErrServerClosed) {
+		logger.Errorf("ERROR: http.Serve() - %s", err)
 	}
-
-	log.Printf("HTTPS: closing %s", tlsListener.Addr())
+	<-idleConnsClosed
 }
 
 // tcpKeepAliveListener sets TCP keep-alive timeouts on accepted
@@ -99,12 +119,18 @@ type tcpKeepAliveListener struct {
 	*net.TCPListener
 }
 
-func (ln tcpKeepAliveListener) Accept() (c net.Conn, err error) {
+func (ln tcpKeepAliveListener) Accept() (net.Conn, error) {
 	tc, err := ln.AcceptTCP()
 	if err != nil {
-		return
+		return nil, err
 	}
-	tc.SetKeepAlive(true)
-	tc.SetKeepAlivePeriod(3 * time.Minute)
+	err = tc.SetKeepAlive(true)
+	if err != nil {
+		logger.Printf("Error setting Keep-Alive: %v", err)
+	}
+	err = tc.SetKeepAlivePeriod(3 * time.Minute)
+	if err != nil {
+		logger.Printf("Error setting Keep-Alive period: %v", err)
+	}
 	return tc, nil
 }

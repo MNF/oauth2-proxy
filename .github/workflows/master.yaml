@@ -7,18 +7,21 @@ on:
 env:
   NAMESPACE: oauth
   IMAGENAME: oauthservice
-  DEPLOYTOPROD: 1 # 1=yes, 0=no
+
 
 jobs:
   build:
-    runs-on: [ webjet, linux ]
+    env:
+      DEPLOY_DEV: true
+      DEPLOY_PROD: true
+      DEPLOY_Teamcity: false
+      DEPLOY_Tableau: false
+    runs-on: [webjet, linux]
+    #timeout-minutes: 20 #from https://stackoverflow.com/questions/59073731/set-default-timeout-on-github-action-pipeline
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-
-      - name: Init k8s
-        uses: webjet/action-kubernetes-init@v1
+      - uses: actions/checkout@v2
+      - uses: webjet/action-kubernetes-init@v1
         with:
           env-json-base64: ${{ secrets.JSONDATA64 }}
 
@@ -27,43 +30,44 @@ jobs:
         with:
           webhook-uri: ${{ secrets.SERVICEPORTAL_MSTEAMS_WEBHOOK  }}
 
-      # - name: Build Image
-      #   uses: webjet/action-build-image@v1
+      - uses: webjet/action-build-image@v1
+      - uses: webjet/action-push-image@v1
 
-      # - name: Push Image
-      #   uses: webjet/action-push-image@v1
 
-      # - name: Deploy DEV WJAU
-      #   uses: webjet/action-kubebot-deploy@v1
-      #   with:
-      #     environment: 'dev'
-      #     service: 'oauthservice-wjau'
-      #     manifest: 'pipeline/dev-wjau.yaml'
+       - name: Deploy DEV WJAU
+        if: (env.DEPLOY_DEV != 'false' )
+         uses: webjet/action-kubebot-deploy@v1
+         with:
+           environment: 'dev'
+           service: 'oauthservice-wjau'
+           manifest: 'pipeline/dev-wjau.yaml'
 
-      # - name: Deploy DEV WJNZ
-      #   uses: webjet/action-kubebot-deploy@v1
-      #   with:
-      #     environment: 'dev'
-      #     service: 'oauthservice-wjnz'
-      #     manifest: 'pipeline/dev-wjnz.yaml'
+       - name: Deploy DEV WJNZ
+         if: (env.DEPLOY_DEV != 'false' )
+         uses: webjet/action-kubebot-deploy@v1
+         with:
+           environment: 'dev'
+           service: 'oauthservice-wjnz'
+           manifest: 'pipeline/dev-wjnz.yaml'
 
-      # - name: Deploy PROD WJAU
-      #   if: ( github.event_name != 'workflow_dispatch' && env.DEPLOYTOPROD == 1 ) || ( github.event_name == 'workflow_dispatch' && github.event.inputs.deployToProd == 'true' )
-      #   uses: webjet/action-kubebot-deploy@v1
-      #   with:
-      #     environment: 'prod'
-      #     service: 'oauthservice-wjau'
-      #     manifest: 'pipeline/prod-wjau.yaml'
+       - name: Deploy PROD WJAU
+         if: ( github.event_name != 'workflow_dispatch' && env.DEPLOY_PROD != 'false'  ) || ( github.event_name == 'workflow_dispatch' && github.event.inputs.deployToProd == 'true' )
+         uses: webjet/action-kubebot-deploy@v1
+         with:
+           environment: 'prod'
+           service: 'oauthservice-wjau'
+           manifest: 'pipeline/prod-wjau.yaml'
 
-      # - name: Deploy PROD WJNZ
-      #   if: ( github.event_name != 'workflow_dispatch' && env.DEPLOYTOPROD == 1 ) || ( github.event_name == 'workflow_dispatch' && github.event.inputs.deployToProd == 'true' )
-      #   uses: webjet/action-kubebot-deploy@v1
-      #   with:
-      #     environment: 'prod'
-      #     service: 'oauthservice-wjnz'
-      #     manifest: 'pipeline/prod-wjnz.yaml'
+       - name: Deploy PROD WJNZ
+         if: ( github.event_name != 'workflow_dispatch' && env.DEPLOY_PROD != 'false'  ) || ( github.event_name == 'workflow_dispatch' && github.event.inputs.deployToProd == 'true' )
+         uses: webjet/action-kubebot-deploy@v1
+         with:
+           environment: 'prod'
+           service: 'oauthservice-wjnz'
+           manifest: 'pipeline/prod-wjnz.yaml'
 
       - name: Deploy Teamcity Oauth
+        if: (env.DEPLOY_Teamcity != 'false' )
         uses: webjet/action-kubebot-deploy@v1
         with:
           environment: 'dev'
@@ -73,6 +77,7 @@ jobs:
           tag: 7
 
       - name: Deploy Tableau Oauth
+        if: (env.DEPLOY_Tableau != 'false' )      
         uses: webjet/action-kubebot-deploy@v1
         with:
           environment: 'dev'

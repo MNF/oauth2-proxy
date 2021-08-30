@@ -1,6 +1,15 @@
-google_auth_proxy
-oauth2_proxy
+oauth2-proxy
 vendor
+dist
+release
+.godeps
+*.exe
+.env
+.bundle
+c.out
+
+vendor
+#google_auth_proxy
 # Go.gitignore
 # Compiled Object files, Static and Dynamic libs (Shared Objects)
 *.o
@@ -10,6 +19,7 @@ vendor
 # Folders
 _obj
 _test
+.idea/
 
 # Architecture specific extensions/prefixes
 *.[568vq]
@@ -23,9 +33,20 @@ _cgo_export.*
 
 _testmain.go
 
-*.exe
-dist
-.godeps
+#*.exe
+#dist
+#.godeps
 
 # Editor swap/temp files
 .*.swp
+
+# Dockerfile.dev is ignored by both git and docker
+# for faster development cycle of docker build
+# cp Dockerfile Dockerfile.dev
+# vi Dockerfile.dev
+# docker build -f Dockerfile.dev .
+Dockerfile.dev
+
+#for VSDebugging https://github.com/microsoft/vscode/issues/83505#issuecomment-561922978- seems doesn't help
+__debug_bin
+*.bak

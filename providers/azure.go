@@ -1,78 +1,220 @@
 package providers
 
 import (
+	"bytes"
+	"context"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"net/url"
-	"oauth2_proxy/cookie"
 	"strings"
-
-	"oauth2_proxy/api"
+	"time"
 
 	"github.com/bitly/go-simplejson"
+	"github.com/oauth2-proxy/oauth2-proxy/v7/pkg/apis/sessions"
+	"github.com/oauth2-proxy/oauth2-proxy/v7/pkg/logger"
+	"github.com/oauth2-proxy/oauth2-proxy/v7/pkg/requests"
 )
 
+// AzureProvider represents an Azure based Identity Provider
 type AzureProvider struct {
 	*ProviderData
-	Tenant          string
-	PermittedGroups []string
+	Tenant string
 }
 
+var _ Provider = (*AzureProvider)(nil)
+
+const (
+	azureProviderName = "Azure"
+	azureDefaultScope = "openid"
+)
+
+var (
+	// Default Login URL for Azure.
+	// Pre-parsed URL of https://login.microsoftonline.com/common/oauth2/authorize.
+	azureDefaultLoginURL = &url.URL{
+		Scheme: "https",
+		Host:   "login.microsoftonline.com",
+		Path:   "/common/oauth2/authorize",
+	}
+
+	// Default Redeem URL for Azure.
+	// Pre-parsed URL of https://login.microsoftonline.com/common/oauth2/token.
+	azureDefaultRedeemURL = &url.URL{
+		Scheme: "https",
+		Host:   "login.microsoftonline.com",
+		Path:   "/common/oauth2/token",
+	}
+
+	// Default Profile URL for Azure.
+	// Pre-parsed URL of https://graph.microsoft.com/v1.0/me.
+	azureDefaultProfileURL = &url.URL{
+		Scheme: "https",
+		Host:   "graph.microsoft.com",
+		Path:   "/v1.0/me",
+	}
+
+	// Default ProtectedResource URL for Azure.
+	// Pre-parsed URL of https://graph.microsoft.com.
+	azureDefaultProtectResourceURL = &url.URL{
+		Scheme: "https",
+		Host:   "graph.microsoft.com",
+	}
+)
+
+// NewAzureProvider initiates a new AzureProvider
 func NewAzureProvider(p *ProviderData) *AzureProvider {
-	p.ProviderName = "Azure"
+	p.setProviderDefaults(providerDefaults{
+		name:        azureProviderName,
+		loginURL:    azureDefaultLoginURL,
+		redeemURL:   azureDefaultRedeemURL,
+		profileURL:  azureDefaultProfileURL,
+		validateURL: nil,
+		scope:       azureDefaultScope,
+	})
 
-	if p.ProfileURL == nil || p.ProfileURL.String() == "" {
-		p.ProfileURL = &url.URL{
-			Scheme: "https",
-			Host:   "graph.microsoft.com",
-			Path:   "/v1.0/me",
-		}
-	}
 	if p.ProtectedResource == nil || p.ProtectedResource.String() == "" {
-		p.ProtectedResource = &url.URL{
-			Scheme: "https",
-			Host:   "graph.microsoft.com",
-		}
+		p.ProtectedResource = azureDefaultProtectResourceURL
 	}
-	if p.Scope == "" {
-		p.Scope = "openid"
+	if p.ValidateURL == nil || p.ValidateURL.String() == "" {
+		p.ValidateURL = p.ProfileURL
 	}
 
-	if p.ApprovalPrompt == "force" {
-		p.ApprovalPrompt = "consent"
+	return &AzureProvider{
+		ProviderData: p,
+		Tenant:       "common",
 	}
-	// log.Printf("Approval prompt: '%s'", p.ApprovalPrompt)
-
-	return &AzureProvider{ProviderData: p}
 }
 
+// Configure defaults the AzureProvider configuration options
 func (p *AzureProvider) Configure(tenant string) {
-	p.Tenant = tenant
-	if tenant == "" {
-		p.Tenant = "common"
+	if tenant == "" || tenant == "common" {
+		// tenant is empty or default, remain on the default "common" tenant
+		return
 	}
 
-	if p.LoginURL == nil || p.LoginURL.String() == "" {
-		p.LoginURL = &url.URL{
+	// Specific tennant specified, override the Login and RedeemURLs
+	p.Tenant = tenant
+	overrideTenantURL(p.LoginURL, azureDefaultLoginURL, tenant, "authorize")
+	overrideTenantURL(p.RedeemURL, azureDefaultRedeemURL, tenant, "token")
+}
+
+func overrideTenantURL(current, defaultURL *url.URL, tenant, path string) {
+	if current == nil || current.String() == "" || current.String() == defaultURL.String() {
+		*current = url.URL{
 			Scheme: "https",
 			Host:   "login.microsoftonline.com",
-			Path:   "/" + p.Tenant + "/oauth2/authorize"}
-	}
-	if p.RedeemURL == nil || p.RedeemURL.String() == "" {
-		p.RedeemURL = &url.URL{
-			Scheme: "https",
-			Host:   "login.microsoftonline.com",
-			Path:   "/" + p.Tenant + "/oauth2/token",
-		}
+			Path:   "/" + tenant + "/oauth2/" + path}
 	}
 }
 
-func getAzureHeader(access_token string) http.Header {
-	header := make(http.Header)
-	header.Set("Authorization", fmt.Sprintf("Bearer %s", access_token))
-	return header
+// Redeem exchanges the OAuth2 authentication token for an ID token
+func (p *AzureProvider) Redeem(ctx context.Context, redirectURL, code string) (*sessions.SessionState, error) {
+	if code == "" {
+		return nil, ErrMissingCode
+	}
+	clientSecret, err := p.GetClientSecret()
+	if err != nil {
+		return nil, err
+	}
+
+	params := url.Values{}
+	params.Add("redirect_uri", redirectURL)
+	params.Add("client_id", p.ClientID)
+	params.Add("client_secret", clientSecret)
+	params.Add("code", code)
+	params.Add("grant_type", "authorization_code")
+	if p.ProtectedResource != nil && p.ProtectedResource.String() != "" {
+		params.Add("resource", p.ProtectedResource.String())
+	}
+
+	// blindly try json and x-www-form-urlencoded
+	var jsonResponse struct {
+		AccessToken  string `json:"access_token"`
+		RefreshToken string `json:"refresh_token"`
+		ExpiresOn    int64  `json:"expires_on,string"`
+		IDToken      string `json:"id_token"`
+	}
+
+	err = requests.New(p.RedeemURL.String()).
+		WithContext(ctx).
+		WithMethod("POST").
+		WithBody(bytes.NewBufferString(params.Encode())).
+		SetHeader("Content-Type", "application/x-www-form-urlencoded").
+		Do().
+		UnmarshalInto(&jsonResponse)
+	if err != nil {
+		return nil, err
+	}
+
+	created := time.Now()
+	expires := time.Unix(jsonResponse.ExpiresOn, 0)
+
+	return &sessions.SessionState{
+		AccessToken:  jsonResponse.AccessToken,
+		IDToken:      jsonResponse.IDToken,
+		CreatedAt:    &created,
+		ExpiresOn:    &expires,
+		RefreshToken: jsonResponse.RefreshToken,
+	}, nil
+}
+
+// RefreshSessionIfNeeded checks if the session has expired and uses the
+// RefreshToken to fetch a new ID token if required
+func (p *AzureProvider) RefreshSessionIfNeeded(ctx context.Context, s *sessions.SessionState) (bool, error) {
+	if s == nil || s.ExpiresOn.After(time.Now()) || s.RefreshToken == "" {
+		return false, nil
+	}
+
+	origExpiration := s.ExpiresOn
+
+	err := p.redeemRefreshToken(ctx, s)
+	if err != nil {
+		return false, fmt.Errorf("unable to redeem refresh token: %v", err)
+	}
+
+	logger.Printf("refreshed id token %s (expired on %s)\n", s, origExpiration)
+	return true, nil
+}
+
+func (p *AzureProvider) redeemRefreshToken(ctx context.Context, s *sessions.SessionState) (err error) {
+	params := url.Values{}
+	params.Add("client_id", p.ClientID)
+	params.Add("client_secret", p.ClientSecret)
+	params.Add("refresh_token", s.RefreshToken)
+	params.Add("grant_type", "refresh_token")
+
+	var jsonResponse struct {
+		AccessToken  string `json:"access_token"`
+		RefreshToken string `json:"refresh_token"`
+		ExpiresOn    int64  `json:"expires_on,string"`
+		IDToken      string `json:"id_token"`
+	}
+
+	err = requests.New(p.RedeemURL.String()).
+		WithContext(ctx).
+		WithMethod("POST").
+		WithBody(bytes.NewBufferString(params.Encode())).
+		SetHeader("Content-Type", "application/x-www-form-urlencoded").
+		Do().
+		UnmarshalInto(&jsonResponse)
+
+	if err != nil {
+		return
+	}
+
+	now := time.Now()
+	expires := time.Unix(jsonResponse.ExpiresOn, 0)
+	s.AccessToken = jsonResponse.AccessToken
+	s.IDToken = jsonResponse.IDToken
+	s.RefreshToken = jsonResponse.RefreshToken
+	s.CreatedAt = &now
+	s.ExpiresOn = &expires
+	return
+}
+
+func makeAzureHeader(accessToken string) http.Header {
+	return makeAuthorizationHeader(tokenTypeBearer, accessToken, nil)
 }
 
 func getEmailFromJSON(json *simplejson.Json) (string, error) {
@@ -92,152 +234,95 @@ func getEmailFromJSON(json *simplejson.Json) (string, error) {
 	return email, err
 }
 
-func (p *AzureProvider) GetEmailAddress(s *SessionState) (string, error) {
+// GetEmailAddress returns the Account email address
+func (p *AzureProvider) GetEmailAddress(ctx context.Context, s *sessions.SessionState) (string, error) {
 	var email string
 	var err error
 
 	if s.AccessToken == "" {
 		return "", errors.New("missing access token")
 	}
-	req, err := http.NewRequest("GET", p.ProfileURL.String(), nil)
-	if err != nil {
-		return "", err
-	}
-	req.Header = getAzureHeader(s.AccessToken)
 
-	json, err := api.Request(req)
-
+	json, err := requests.New(p.ProfileURL.String()).
+		WithContext(ctx).
+		WithHeaders(makeAzureHeader(s.AccessToken)).
+		Do().
+		UnmarshalJSON()
 	if err != nil {
 		return "", err
 	}
 
 	email, err = getEmailFromJSON(json)
-
 	if err == nil && email != "" {
 		return email, err
 	}
 
 	email, err = json.Get("userPrincipalName").String()
-
 	if err != nil {
-		log.Printf("failed making request %s", err)
+		logger.Errorf("failed making request %s", err)
 		return "", err
 	}
 
 	if email == "" {
-		log.Printf("failed to get email address")
+		logger.Errorf("failed to get email address")
 		return "", err
 	}
 
 	return email, err
 }
 
-// Get list of groups user belong to. Filter the desired names of groups (in case of huge group set)
-func (p *AzureProvider) GetGroups(s *SessionState, f string) (string, error) {
-	if s.AccessToken == "" {
-		return "", errors.New("missing access token")
-	}
-
-	if s.IDToken == "" {
-		return "", errors.New("missing id token")
-	}
-
-	// For future use. Right now microsoft graph don't support filter
-	// http://docs.oasis-open.org/odata/odata/v4.0/errata02/os/complete/part2-url-conventions/odata-v4.0-errata02-os-part2-url-conventions-complete.html#_Toc406398116
-
-	/*
-		var request string = "https://graph.microsoft.com/v1.0/me/memberOf?$select=id,displayName,groupTypes,securityEnabled,description,mailEnabled&$top=999"
-		if f != "" {
-			request += "?$filter=contains(displayName, '"+f+"')"
-		}
-	*/
-	//
-	// Filters that will be possible to use:
-	// contains - unknown function | "https://graph.microsoft.com/v1.0/me/memberOf?$filter=contains(displayName,%27groupname%27)"
-	// startswith - not supported  | "https://graph.microsoft.com/v1.0/me/memberOf?$filter=startswith(displayName,%27groupname%27)"
-	// substring - not supported   | "https://graph.microsoft.com/v1.0/me/memberOf?$filter=substring(displayName,0,2)%20eq%20%27groupname%27"
-
-	requestUrl := "https://graph.microsoft.com/v1.0/me/memberOf?$select=displayName"
-
-	groups := make([]string, 0)
-
-	for {
-		req, err := http.NewRequest("GET", requestUrl, nil)
-
-		if err != nil {
-			return "", err
-		}
-		req.Header = getAzureHeader(s.AccessToken)
-		req.Header.Add("Content-Type", "application/json")
-
-		groupData, err := api.Request(req)
-		if err != nil {
-			return "", err
-		}
-
-		for _, groupInfo := range groupData.Get("value").MustArray() {
-			v, ok := groupInfo.(map[string]interface{})
-			if !ok {
-				continue
-			}
-			dname := v["displayName"].(string)
-			if strings.Contains(dname, f) {
-				groups = append(groups, dname)
-			}
-
-		}
-
-		if nextlink := groupData.Get("@odata.nextLink").MustString(); nextlink != "" {
-			requestUrl = nextlink
-		} else {
-			break
-		}
-	}
-
-	return strings.Join(groups, "|"), nil
-}
-
 func (p *AzureProvider) GetLoginURL(redirectURI, state string) string {
-	nonce, _ := cookie.Nonce()
-	var a url.URL
-	a = *p.LoginURL
-	params, _ := url.ParseQuery(a.RawQuery)
-	params.Set("client_id", p.ClientID)
-	params.Set("response_type", "id_token code")
-	params.Set("redirect_uri", redirectURI)
-	params.Set("response_mode", "form_post")
-	params.Add("scope", p.Scope)
-	params.Add("state", state)
-	params.Set("prompt", p.ApprovalPrompt)
-	params.Set("nonce", nonce)
+	extraParams := url.Values{}
 	if p.ProtectedResource != nil && p.ProtectedResource.String() != "" {
-		params.Add("resource", p.ProtectedResource.String())
+		extraParams.Add("resource", p.ProtectedResource.String())
 	}
-	a.RawQuery = params.Encode()
-
+	a := makeLoginURL(p.ProviderData, redirectURI, state, extraParams)
 	return a.String()
 }
 
-func (p *AzureProvider) SetGroupRestriction(groups []string) {
-	if len(groups) == 1 && strings.Index(groups[0], "|") >= 0 {
-		p.PermittedGroups = strings.Split(groups[0], "|")
-	} else {
-		p.PermittedGroups = groups
-	}
-	// log.Printf("Set group restrictions. Allowed groups are:")
-	// for _, pGroup := range p.PermittedGroups {
-	// 	log.Printf("\t'%s'", pGroup)
-	// }
+// ValidateSession validates the AccessToken
+func (p *AzureProvider) ValidateSession(ctx context.Context, s *sessions.SessionState) bool {
+	return validateToken(ctx, p, s.AccessToken, makeAzureHeader(s.AccessToken))
 }
 
-func (p *AzureProvider) ValidateGroup(s *SessionState) bool {
-	if len(p.PermittedGroups) != 0 {
-		for _, pGroup := range p.PermittedGroups {
-			if strings.Contains(s.Groups, pGroup) {
-				return true
-			}
-		}
-		return false
+// EnrichSession checks the listed Google Groups configured and adds any
+// that the user is a member of to session.Groups.
+func (p *AzureProvider) EnrichSession(ctx context.Context, s *sessions.SessionState) error {
+	// Similar `GoogleProvider.groupValidator`.
+	//
+	// This is called here to get the validator to do the `session.Groups`
+	// populating logic.
+	p.addGroupsToSession(s)
+
+	return nil
+}
+// (p *ProviderData) SetAllowedGroup organizes a group list into the AllowedGroups map  to be consumed by Authorize implementations.
+//It is called from parseProviderInfo(o *options.Options)
+
+func (p *AzureProvider) addGroupsToSession(s *sessions.SessionState) bool {
+	for _, group := range p.ProviderData.AllowedGroups {
+		s.Groups = append(s.Groups, fmt.Sprintf("group:%s", group))
 	}
+	// if len(p.ProviderData.AllowedGroups) != 0 {
+	// 	for _, pGroup := range p.ProviderData.AllowedGroups {
+	// 		//if strings.Contains(s.Groups, pGroup) {
+	// 			if (contains(s.Groups,pGroup)) {
+	// 			return true
+	// 		}
+	// 	}
+	// 	return false
+	// }
 	return true
+}
+
+//TODO: move to some util class https://freshman.tech/snippets/go/check-if-slice-contains-element/
+// https://play.golang.org/p/Qg_uv_inCek // contains checks if a string is present in a slice
+func contains(s []string, str string) bool {
+	for _, v := range s {
+		if strings.EqualFold( v , str) {  //https://stackoverflow.com/questions/24836044/case-insensitive-string-search-in-golang
+			return true
+		}
+	}
+
+	return false
 }
