@@ -171,10 +171,6 @@ func (s *SessionState) EncodeSessionState(c encryption.Cipher, compress bool) ([
 		return c.Encrypt(packed)
 	}
 
-	if !compress {
-		return c.Encrypt(packed)
-	}
-
 	compressed, err := lz4Compress(packed)
 	if err != nil {
 		return nil, err
@@ -182,14 +178,6 @@ func (s *SessionState) EncodeSessionState(c encryption.Cipher, compress bool) ([
 	// logger.Printf("TRACE: SessionState: %+v", compressed)
 	return c.Encrypt(compressed)
 }
-
-// // [AB#14848] CUSTOM MARSHAL- save 3 fields as ':' separated FirstName, CustomerReferenceId, Email
-// // Note, we assumed that DecodeSessionState will be never used, as we don’t disable unmarchal
-// func Marshal(s *SessionState) []byte {
-// 	// [AB#14848] REQUIRED FORMAT BY LUA SCRIPT -see https://github.com/Webjet/wcs-reverse-proxy/blob/main/header.lua#L43
-// 	content := []byte(fmt.Sprintf("%s:%s:%s", s.PreferredUsername, s.User, s.Email))
-// 	return content
-// }
 
 // DecodeSessionState decodes a LZ4 compressed MessagePack into a Session State
 func DecodeSessionState(data []byte, c encryption.Cipher, compressed bool) (*SessionState, error) {
@@ -210,11 +198,6 @@ func DecodeSessionState(data []byte, c encryption.Cipher, compressed bool) (*Ses
 	err = msgpack.Unmarshal(packed, &ss)
 	if err != nil {
 		return nil, fmt.Errorf("error unmarshalling data to session state: %w", err)
-	}
-
-	err = ss.validate()
-	if err != nil {
-		return nil, err
 	}
 
 	return &ss, nil
@@ -269,36 +252,4 @@ func lz4Decompress(compressed []byte) ([]byte, error) {
 	}
 
 	return payload, nil
-}
-
-// validate ensures the decoded session is non-empty and contains valid data
-//
-// Non-empty check is needed due to ensure the non-authenticated AES-CFB
-// decryption doesn't result in garbage data that collides with a valid
-// MessagePack header bytes (which MessagePack will unmarshal to an empty
-// default SessionState). <1% chance, but observed with random test data.
-//
-// UTF-8 check ensures the strings are valid and not raw bytes overloaded
-// into Latin-1 encoding. The occurs when legacy unencrypted fields are
-// decrypted with AES-CFB which results in random bytes.
-func (s *SessionState) validate() error {
-	for _, field := range []string{
-		s.User,
-		s.Email,
-		s.PreferredUsername,
-		s.AccessToken,
-		s.IDToken,
-		s.RefreshToken,
-	} {
-		if !utf8.ValidString(field) {
-			return errors.New("invalid non-UTF8 field in session")
-		}
-	}
-
-	empty := new(SessionState)
-	if reflect.DeepEqual(*s, *empty) {
-		return errors.New("invalid empty session unmarshalled")
-	}
-
-	return nil
 }
