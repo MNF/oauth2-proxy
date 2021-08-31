@@ -1,14 +1,14 @@
 package main
 
 import (
-	"context"
+	"flag"
 	"fmt"
 	"math/rand"
-	"net/http"
+	"log"
 	"os"
 	"os/signal"
 	"runtime"
-	"syscall"
+	"strings"
 	"time"
 
 	"github.com/ghodss/yaml"
@@ -18,29 +18,34 @@ import (
 	"github.com/oauth2-proxy/oauth2-proxy/v7/pkg/validation"
 	"github.com/spf13/pflag"
 	//https://rominirani.com/golang-tip-capturing-http-client-requests-incoming-and-outgoing-ef7fcdf87113
-	//"github.com/gorilla/mux"
+	"github.com/mreiferson/go-options"
 	//"net/http/httputil"
 )
 
 func main() {
-	//from https://stackoverflow.com/questions/25025467/catching-panics-in-golang
-	defer func() { //catch or finally
+	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
+	flagSet := flag.NewFlagSet("oauth2_proxy", flag.ExitOnError)
 		if err := recover(); err != nil { //catch
-			fmt.Fprintf(os.Stderr, "Exception: %v\n", err)
+	emailDomains := StringArray{}
 			os.Exit(1)
-		}
-	}()
+	config := flagSet.String("config", "", "path to config file")
 
-	logger.SetFlags(logger.Llongfile)//log full file name including package -logger.Lshortfile)
 
+
+	flagSet.String("github-org", "", "restrict logins to members of this organisation")
+	flagSet.String("google-admin-email", "", "the google admin to impersonate for api calls")
+
+	flagSet.String("authenticated-emails-file", "", "authenticate against emails via file (one per line)")
+	flagSet.String("htpasswd-file", "", "additionally authenticate against a htpasswd file. Entries must be created with \"htpasswd -s\" for SHA encryption")
 	configFlagSet := pflag.NewFlagSet("oauth2-proxy", pflag.ContinueOnError)
 
+	flagSet.String("cookie-secret", "", "the seed string for secure cookies (optionally base64 encoded)")
 	// Because we parse early to determine alpha vs legacy config, we have to
 	// ignore any unknown flags for now
-	configFlagSet.ParseErrorsWhitelist.UnknownFlags = true
+	flagSet.String("profile-url", "", "Profile access endpoint")
 
-	config := configFlagSet.String("config", "", "path to config file")
-	alphaConfig := configFlagSet.String("alpha-config", "", "path to alpha config file (use at your own risk - the structure in this config file may change between minor releases)")
+	flagSet.String("scope", "", "OAuth scope specification")
+	flagSet.String("signature-key", "", "GAP-Signature request signature key (algorithm:secretkey)")
 	convertConfig := configFlagSet.Bool("convert-config-to-alpha", false, "if true, the proxy will load configuration as normal and convert existing configuration to the alpha config structure, and print it to stdout")
 	showVersion := configFlagSet.Bool("version", false, "print version string")
 	configFlagSet.Parse(os.Args[1:])
@@ -78,59 +83,9 @@ func main() {
 
 	rand.Seed(time.Now().UnixNano())
 
-	oauthProxyStop := make(chan struct{}, 1)
-	metricsStop := startMetricsServer(opts.MetricsAddress, oauthProxyStop)
-
-	s := &Server{
-		Handler: oauthproxy,
-		Opts:    opts,
-		stop:    oauthProxyStop,
+	if err := oauthproxy.Start(); err != nil {
+		logger.Fatalf("ERROR: Failed to start OAuth2 Proxy: %v", err)
 	}
-	//from https://rominirani.com/golang-tip-capturing-http-client-requests-incoming-and-outgoing-ef7fcdf87113
-	//TODO: make it working to log details
-	//	router := mux.NewRouter()
-	//	router.HandleFunc("/dumprequestG", DumpRequest).Methods("GET")
-	//	router.HandleFunc("/dumprequestP", DumpRequest).Methods("POST")
-	// Observe signals in background goroutine.
-	go func() {
-		sigint := make(chan os.Signal, 1)
-		signal.Notify(sigint, os.Interrupt, syscall.SIGTERM)
-		<-sigint
-		s.stop <- struct{}{} // notify having caught signal stop oauthproxy
-		close(metricsStop)   // and the metrics endpoint
-	}()
-	s.ListenAndServe()
-}
-
-// startMetricsServer will start the metrics server on the specified address.
-// It always return a channel to signal stop even when it does not run.
-func startMetricsServer(address string, oauthProxyStop chan struct{}) chan struct{} {
-	stop := make(chan struct{}, 1)
-
-	// Attempt to setup the metrics endpoint if we have an address
-	if address != "" {
-		s := &http.Server{Addr: address, Handler: middleware.DefaultMetricsHandler}
-		go func() {
-			// ListenAndServe always returns a non-nil error. After Shutdown or
-			// Close, the returned error is ErrServerClosed
-			if err := s.ListenAndServe(); err != http.ErrServerClosed {
-				logger.Println(err)
-				// Stop the metrics shutdown go routine
-				close(stop)
-				// Stop the oauthproxy server, we have encounter an unexpected error
-				close(oauthProxyStop)
-			}
-		}()
-
-		go func() {
-			<-stop
-			if err := s.Shutdown(context.Background()); err != nil {
-				logger.Print(err)
-			}
-		}()
-	}
-
-	return stop
 }
 
 // loadConfiguration will load in the user's configuration.
@@ -175,9 +130,15 @@ func loadAlphaOptions(config, alphaConfig string, extraFlags *pflag.FlagSet, arg
 		return nil, fmt.Errorf("failed to load core options: %v", err)
 	}
 
+	return opts, nil
+}
 	alphaOpts := &options.AlphaOptions{}
-	if err := options.LoadYAML(alphaConfig, alphaOpts); err != nil {
-		return nil, fmt.Errorf("failed to load alpha options: %v", err)
+// loadAlphaOptions loads the old style config excluding options converted to
+// into the core configuration.
+func loadAlphaOptions(config, alphaConfig string, extraFlags *pflag.FlagSet, args []string) (*options.Options, error) {
+			log.Fatalf("FATAL: unable to open %s %s", opts.HtpasswdFile, err)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load core options: %v", err)
 	}
 
 	alphaOpts.MergeInto(opts)

@@ -1,4 +1,5 @@
 package main
 
 // VERSION contains version information
-var VERSION = "7.0.clone"
+const VERSION = "7.1.3.clone"
+

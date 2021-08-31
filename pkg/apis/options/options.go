@@ -4,7 +4,7 @@ import (
 	"crypto"
 	"net/url"
 
-	oidc "github.com/coreos/go-oidc"
+	"github.com/coreos/go-oidc/v3/oidc"
 	ipapi "github.com/oauth2-proxy/oauth2-proxy/v7/pkg/apis/ip"
 	"github.com/oauth2-proxy/oauth2-proxy/v7/providers"
 	"github.com/spf13/pflag"
@@ -68,6 +68,11 @@ type Options struct {
 	InjectRequestHeaders  []Header `cfg:",internal"`
 	InjectResponseHeaders []Header `cfg:",internal"`
 
+	Server        Server `cfg:",internal"`
+	MetricsServer Server `cfg:",internal"`
+
+	Providers Providers `cfg:",internal"`
+
 	SkipAuthRegex         []string `flag:"skip-auth-regex" cfg:"skip_auth_regex"`
 	SkipAuthRoutes        []string `flag:"skip-auth-route" cfg:"skip_auth_routes"`
 	SkipJwtBearerTokens   bool     `flag:"skip-jwt-bearer-tokens" cfg:"skip_jwt_bearer_tokens"`
@@ -106,6 +111,9 @@ type Options struct {
 	PubJWKURL       string `flag:"pubjwk-url" cfg:"pubjwk_url"`
 	GCPHealthChecks bool   `flag:"gcp-healthchecks" cfg:"gcp_healthchecks"`
 
+	// This is used for backwards compatibility for basic auth users
+	LegacyPreferEmailToUser bool `cfg:",internal"`
+
 	// internal values that are set after config validation
 	redirectURL        *url.URL
 	provider           providers.Provider
@@ -134,27 +142,16 @@ func (o *Options) SetRealClientIPParser(s ipapi.RealClientIPParser) { o.realClie
 // NewOptions constructs a new Options with defaulted values
 func NewOptions() *Options {
 	return &Options{
-		ProxyPrefix:                      "/oauth2",
-		ProviderType:                     "google",
-		MetricsAddress:                   "",
-		PingPath:                         "/ping",
-		HTTPAddress:                      "127.0.0.1:4180",
-		HTTPSAddress:                     ":443",
-		RealClientIPHeader:               "X-Real-IP",
-		ForceHTTPS:                       false,
-		Cookie:                           cookieDefaults(),
-		Session:                          sessionOptionsDefaults(),
-		Templates:                        templatesDefaults(),
-		AzureTenant:                      "common",
-		SkipAuthPreflight:                false,
-		Prompt:                           "", // Change to "login" when ApprovalPrompt officially deprecated
-		ApprovalPrompt:                   "force",
-		InsecureOIDCAllowUnverifiedEmail: false,
-		SkipOIDCDiscovery:                false,
-		Logging:                          loggingDefaults(),
-		UserIDClaim:                      providers.OIDCEmailClaim, // Deprecated: Use OIDCEmailClaim
-		OIDCEmailClaim:                   providers.OIDCEmailClaim,
-		OIDCGroupsClaim:                  providers.OIDCGroupsClaim,
+		ProxyPrefix:        "/oauth2",
+		Providers:          providerDefaults(),
+		PingPath:           "/ping",
+		RealClientIPHeader: "X-Real-IP",
+		ForceHTTPS:         false,
+		Cookie:             cookieDefaults(),
+		Session:            sessionOptionsDefaults(),
+		Templates:          templatesDefaults(),
+		SkipAuthPreflight:  false,
+		Logging:            loggingDefaults(),
 	}
 }
 

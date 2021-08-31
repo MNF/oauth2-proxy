@@ -2,15 +2,18 @@ package providers
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"testing"
 
-	"github.com/coreos/go-oidc"
+	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/oauth2-proxy/oauth2-proxy/v7/pkg/apis/sessions"
+	"github.com/oauth2-proxy/oauth2-proxy/v7/pkg/encryption"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -54,7 +57,7 @@ func newOIDCProvider(serverURL *url.URL) *OIDCProvider {
 		),
 	}
 
-	p := &OIDCProvider{ProviderData: providerData}
+	p := NewOIDCProvider(providerData)
 
 	return p
 }
@@ -72,6 +75,26 @@ func newTestOIDCSetup(body []byte) (*httptest.Server, *OIDCProvider) {
 	redeemURL, server := newOIDCServer(body)
 	provider := newOIDCProvider(redeemURL)
 	return server, provider
+}
+
+func TestOIDCProviderGetLoginURL(t *testing.T) {
+	serverURL := &url.URL{
+		Scheme: "https",
+		Host:   "oauth2proxy.oidctest",
+	}
+	provider := newOIDCProvider(serverURL)
+
+	n, err := encryption.Nonce()
+	assert.NoError(t, err)
+	nonce := base64.RawURLEncoding.EncodeToString(n)
+
+	// SkipNonce defaults to true
+	skipNonce := provider.GetLoginURL("http://redirect/", "", nonce)
+	assert.NotContains(t, skipNonce, "nonce")
+
+	provider.SkipNonce = false
+	withNonce := provider.GetLoginURL("http://redirect/", "", nonce)
+	assert.Contains(t, withNonce, fmt.Sprintf("nonce=%s", nonce))
 }
 
 func TestOIDCProviderRedeem(t *testing.T) {
@@ -467,7 +490,6 @@ func TestOIDCProviderRefreshSessionIfNeededWithoutIdToken(t *testing.T) {
 		User:         "11223344",
 	}
 
-	refreshed, err := provider.RefreshSessionIfNeeded(context.Background(), existingSession)
 	assert.Equal(t, nil, err)
 	assert.Equal(t, refreshed, true)
 	assert.Equal(t, "janedoe@example.com", existingSession.Email)
@@ -500,7 +522,6 @@ func TestOIDCProviderRefreshSessionIfNeededWithIdToken(t *testing.T) {
 		Email:        "changeit",
 		User:         "changeit",
 	}
-	refreshed, err := provider.RefreshSessionIfNeeded(context.Background(), existingSession)
 	assert.Equal(t, nil, err)
 	assert.Equal(t, refreshed, true)
 	assert.Equal(t, defaultIDToken.Email, existingSession.Email)

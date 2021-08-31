@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"reflect"
 	"time"
 
@@ -17,15 +18,29 @@ import (
 // OIDCProvider represents an OIDC based Identity Provider
 type OIDCProvider struct {
 	*ProviderData
+
+	SkipNonce bool
 }
 
 // NewOIDCProvider initiates a new OIDCProvider
 func NewOIDCProvider(p *ProviderData) *OIDCProvider {
 	p.ProviderName = "OpenID Connect"
-	return &OIDCProvider{ProviderData: p}
+		ProviderData: p,
+		SkipNonce:    true,
+	}
 }
 
 var _ Provider = (*OIDCProvider)(nil)
+
+// GetLoginURL makes the LoginURL with optional nonce support
+func (p *OIDCProvider) GetLoginURL(redirectURI, state, nonce string) string {
+	extraParams := url.Values{}
+	if !p.SkipNonce {
+		extraParams.Add("nonce", nonce)
+	}
+	loginURL := makeLoginURL(p.Data(), redirectURI, state, extraParams)
+	return loginURL.String()
+}
 
 // Redeem exchanges the OAuth2 authentication token for an ID token
 func (p *OIDCProvider) Redeem(ctx context.Context, redirectURL, code string) (*sessions.SessionState, error) {
@@ -51,7 +66,7 @@ func (p *OIDCProvider) Redeem(ctx context.Context, redirectURL, code string) (*s
 
 	//authOpts := make([]oauth2.AuthCodeOption, 0)
 	//authOpts = append(authOpts, oauth2.SetAuthURLParam("scope", p.Scope))
-	token, err := c.Exchange(ctx, code) // , authOpts...
+	token, err := c.Exchange(ctx, code)
 	if err != nil {
 		return nil, fmt.Errorf("token exchange failed: %v", err)
 	}
@@ -68,6 +83,7 @@ func (p *OIDCProvider) EnrichSession(ctx context.Context, s *sessions.SessionSta
 		}
 		return nil
 	}
+
 	// Try to get missing emails or groups from a profileURL
 	if s.Email == "" || s.Groups == nil {
 		err := p.enrichFromProfileURL(ctx, s)
@@ -118,14 +134,27 @@ func (p *OIDCProvider) enrichFromProfileURL(ctx context.Context, s *sessions.Ses
 
 // ValidateSession checks that the session's IDToken is still valid
 func (p *OIDCProvider) ValidateSession(ctx context.Context, s *sessions.SessionState) bool {
-	_, err := p.Verifier.Verify(ctx, s.IDToken)
-	return err == nil
+	idToken, err := p.Verifier.Verify(ctx, s.IDToken)
+	if err != nil {
+		logger.Errorf("id_token verification failed: %v", err)
+		return false
+	}
+
+	if p.SkipNonce {
+		return true
+	}
+	err = p.checkNonce(s, idToken)
+	if err != nil {
+		logger.Errorf("nonce verification failed: %v", err)
+		return false
+	}
+
+	return true
 }
 
-// RefreshSessionIfNeeded checks if the session has expired and uses the
-// RefreshToken to fetch a new Access Token (and optional ID token) if required
-func (p *OIDCProvider) RefreshSessionIfNeeded(ctx context.Context, s *sessions.SessionState) (bool, error) {
-	if s == nil || (s.ExpiresOn != nil && s.ExpiresOn.After(time.Now())) || s.RefreshToken == "" {
+// RefreshSession uses the RefreshToken to fetch new Access and ID Tokens
+func (p *OIDCProvider) RefreshSession(ctx context.Context, s *sessions.SessionState) (bool, error) {
+	if s == nil || s.RefreshToken == "" {
 		return false, nil
 	}
 
@@ -206,7 +235,9 @@ func (p *OIDCProvider) CreateSessionFromToken(ctx context.Context, token string)
 	ss.AccessToken = token
 	ss.IDToken = token
 	ss.RefreshToken = ""
-	ss.ExpiresOn = &idToken.Expiry
+
+	ss.CreatedAtNow()
+	ss.SetExpiresOn(idToken.Expiry)
 
 	return ss, nil
 }
@@ -227,6 +258,7 @@ func (p *OIDCProvider) createSession(ctx context.Context, token *oauth2.Token, r
 			return nil, fmt.Errorf("could not verify id_token: %v", err)
 		}
 	}
+
 	ss, err := p.buildSessionFromClaims(idToken)
 	if err != nil {
 		return nil, err
@@ -236,9 +268,8 @@ func (p *OIDCProvider) createSession(ctx context.Context, token *oauth2.Token, r
 	ss.RefreshToken = token.RefreshToken
 	ss.IDToken = getIDToken(token)
 
-	created := time.Now()
-	ss.CreatedAt = &created
-	ss.ExpiresOn = &token.Expiry
+	ss.CreatedAtNow()
+	ss.SetExpiresOn(token.Expiry)
 
 	return ss, nil
 }

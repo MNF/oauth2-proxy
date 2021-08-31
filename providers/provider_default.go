@@ -33,6 +33,13 @@ var (
 	_ Provider = (*ProviderData)(nil)
 )
 
+// GetLoginURL with typical oauth parameters
+func (p *ProviderData) GetLoginURL(redirectURI, state, _ string) string {
+	extraParams := url.Values{}
+	loginURL := makeLoginURL(p, redirectURI, state, extraParams)
+	return loginURL.String()
+}
+
 // Redeem provides a default implementation of the OAuth2 token redemption process
 func (p *ProviderData) Redeem(ctx context.Context, redirectURL, code string) (*sessions.SessionState, error) {
 	if code == "" {
@@ -78,19 +85,16 @@ func (p *ProviderData) Redeem(ctx context.Context, redirectURL, code string) (*s
 	if err != nil {
 		return nil, err
 	}
+	// TODO (@NickMeves): Uses OAuth `expires_in` to set an expiration
 	if token := values.Get("access_token"); token != "" {
-		created := time.Now()
-		return &sessions.SessionState{AccessToken: token, CreatedAt: &created}, nil
+		ss := &sessions.SessionState{
+			AccessToken: token,
+		}
+		ss.CreatedAtNow()
+		return ss, nil
 	}
 
 	return nil, fmt.Errorf("no access token found %s", result.Body())
-}
-
-// GetLoginURL with typical oauth parameters
-func (p *ProviderData) GetLoginURL(redirectURI, state string) string {
-	extraParams := url.Values{}
-	a := makeLoginURL(p, redirectURI, state, extraParams)
-	return a.String()
 }
 
 // GetEmailAddress returns the Account email address
@@ -98,7 +102,6 @@ func (p *ProviderData) GetLoginURL(redirectURI, state string) string {
 func (p *ProviderData) GetEmailAddress(_ context.Context, _ *sessions.SessionState) (string, error) {
 	return "", ErrNotImplemented
 }
-
 
 // EnrichSession is called after Redeem to allow providers to enrich session fields
 // such as User, Email, Groups with provider specific API calls.
@@ -127,10 +130,9 @@ func (p *ProviderData) ValidateSession(ctx context.Context, s *sessions.SessionS
 	return validateToken(ctx, p, s.AccessToken, nil)
 }
 
-// RefreshSessionIfNeeded should refresh the user's session if required and
-// do nothing if a refresh is not required
-func (p *ProviderData) RefreshSessionIfNeeded(_ context.Context, _ *sessions.SessionState) (bool, error) {
-	return false, nil
+// RefreshSession refreshes the user's session
+func (p *ProviderData) RefreshSession(_ context.Context, _ *sessions.SessionState) (bool, error) {
+	return false, ErrNotImplemented
 }
 
 // CreateSessionFromToken converts Bearer IDTokens into sessions
