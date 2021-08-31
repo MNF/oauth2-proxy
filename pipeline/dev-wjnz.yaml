@@ -9,7 +9,7 @@ deployment:
     - name: SITE
       value: wjnz
   args:
-    - "-config=/etc/config/oauth2_proxy.cfg"
+    - --config=/etc/config/oauth2_proxy.cfg
     - "-upstream=http://packagescampaignmanager-web-nz.hotels/admin/web/packages/serenityservice/,http://itinerarylist-wjnz.serviceportal/admin/web/portal/itinerarylist/,http://flightsdatamanagement-web-wjnz.flights/admin/web/flights/serenityservice/,http://price-lookup.ui/admin/web/ui/pricelookup/"
     - "-provider=azure"
     - "-cookie-name=adminauth"

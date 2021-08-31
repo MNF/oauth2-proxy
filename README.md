@@ -34,6 +34,12 @@ To invoke debugger I have to manually modify URL to
 http://localhost:13310/oauth2/callback?state=3f9257fb3af3e05785af9c66bc6e96fa%3a%2fFlightSearch%2fSignIn%2f...  
 where port is dynamically changes after each restart.
 
+## kubectl commands to check deployment
+  - kubectl config use-context k8s-dev-syd-b  
+  - kubectl get pods -n oauth  
+  - kubectl describe pod  -n  oauth [oauthservice-pod name from list]
+  - kubectl logs pod/[oauthservice-pod name from list]
+
 ## Reference to original oauth2-proxy/oauth2-proxy repository
 
 Set upstream  
@@ -45,7 +51,7 @@ Code scanning - action (codeql.yml)
 Mark stale issues and pull requests(stale.yml).
 
 # Original oauth2-proxy/oauth2-proxy README
-
+https://github.com/oauth2-proxy/oauth2-proxy/blob/master/README.md
 ![OAuth2 Proxy](/docs/static/img/logos/OAuth2_Proxy_horizontal.svg)
 
 [![Build Status](https://secure.travis-ci.org/oauth2-proxy/oauth2-proxy.svg?branch=master)](http://travis-ci.org/oauth2-proxy/oauth2-proxy)
