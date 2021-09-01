@@ -1,7 +1,7 @@
 # Run remotely
 
 ## Micro-services
-
+When testing changes, consider to use INCOGNITO or clear cookies
 https://services.dev.webjet.com.au/admin/web/portal/itinerarylist/ItineraryList/
 https://services.dev.webjet.com.au/admin/web/packages/serenityservice/
 https://services.dev.webjet.com.au/admin/web/ui/pricelookup/
