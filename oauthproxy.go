@@ -607,7 +607,6 @@ func (p *OAuthProxy) SignIn(rw http.ResponseWriter, req *http.Request) {
 
 // UserInfo endpoint outputs session email and preferred username in JSON format
 func (p *OAuthProxy) UserInfo(rw http.ResponseWriter, req *http.Request) {
-
 	session, err := p.getAuthenticatedSession(rw, req)
 	if err != nil {
 		http.Error(rw, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
@@ -677,13 +676,13 @@ func (p *OAuthProxy) OAuthStart(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	redirectURI := p.GetRedirectURI(req.Host)
+	callbackRedirect := p.getOAuthRedirectURI(req)
 	loginURL := p.provider.GetLoginURL(
 		callbackRedirect,
 		encodeState(csrf.HashOAuthState(), appRedirect),
 		csrf.HashOIDCNonce(),
 	)
-	http.Redirect(rw, req, p.provider.GetLoginURL(redirectURI, fmt.Sprintf("%v:%v", nonce, redirect)), http.StatusFound)
+
 	if _, err := csrf.SetCookie(rw, req); err != nil {
 		logger.Errorf("Error setting CSRF cookie: %v %+v", err, req)
 		p.ErrorPage(rw, req, http.StatusInternalServerError, err.Error())
@@ -728,13 +727,6 @@ func (p *OAuthProxy) OAuthCallback(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	err = p.enrichSessionState(req.Context(), session)
-	if err != nil {
-		logger.Errorf("Error creating session during OAuth2 callback: %v %+v", err, req)
-		p.ErrorPage(rw, req, http.StatusInternalServerError, "State paremeter did not have expected length", "Login Failed: Invalid State after login.")
-		return
-	}
-
 	csrf, err := cookies.LoadCSRFCookie(req, p.CookieOptions)
 	if err != nil {
 		logger.PrintAuthf(session.Email, req, logger.AuthFailure, "Invalid authentication via OAuth2: unable to obtain CSRF cookie")
@@ -750,6 +742,7 @@ func (p *OAuthProxy) OAuthCallback(rw http.ResponseWriter, req *http.Request) {
 		p.ErrorPage(rw, req, http.StatusInternalServerError, err.Error())
 		return
 	}
+
 	if !csrf.CheckOAuthState(nonce) {
 		logger.PrintAuthf(session.Email, req, logger.AuthFailure, "Invalid authentication via OAuth2: CSRF token mismatch, potential attack")
 		p.ErrorPage(rw, req, http.StatusForbidden, "CSRF token mismatch, potential attack", "Login Failed: Unable to find a valid CSRF token. Please try again.")
@@ -758,6 +751,7 @@ func (p *OAuthProxy) OAuthCallback(rw http.ResponseWriter, req *http.Request) {
 
 	csrf.SetSessionNonce(session)
 	p.provider.ValidateSession(req.Context(), session)
+
 	if !p.redirectValidator.IsValidRedirect(appRedirect) {
 		appRedirect = "/"
 	}
@@ -776,7 +770,7 @@ func (p *OAuthProxy) OAuthCallback(rw http.ResponseWriter, req *http.Request) {
 			return
 		}
 		logger.LogTracef("OAuth User Login: %s connected on %s", session.Email, time.Now())
-		http.Redirect(rw, req, redirect, http.StatusFound)
+		http.Redirect(rw, req, appRedirect, http.StatusFound)
 	} else {
 		logger.PrintAuthf(session.Email, req, logger.AuthFailure, "Invalid authentication via OAuth2: unauthorized")
 		p.ErrorPage(rw, req, http.StatusForbidden, "Invalid session: unauthorized")
@@ -793,6 +787,8 @@ func (p *OAuthProxy) redeemCode(req *http.Request) (*sessionsapi.SessionState, e
 	s, err := p.provider.Redeem(req.Context(), redirectURI, code)
 	if err != nil {
 		return nil, err
+	}
+
 	// Force setting these in case the Provider didn't
 	if s.CreatedAt == nil {
 		s.CreatedAtNow()
@@ -873,12 +869,7 @@ func (p *OAuthProxy) Proxy(rw http.ResponseWriter, req *http.Request) {
 		p.ErrorPage(rw, req, http.StatusInternalServerError, err.Error())
 	}
 }
-// See https://developers.google.com/web/fundamentals/performance/optimizing-content-efficiency/http-caching?hl=en
-var noCacheHeaders = map[string]string{
-	"Expires":         time.Unix(0, 0).Format(time.RFC1123),
-	"Cache-Control":   "no-cache, no-store, must-revalidate, max-age=0",
-	"X-Accel-Expires": "0", // https://www.nginx.com/resources/wiki/start/topics/examples/x-accel/
-}
+
 // See https://developers.google.com/web/fundamentals/performance/optimizing-content-efficiency/http-caching?hl=en
 var noCacheHeaders = map[string]string{
 	"Expires":         time.Unix(0, 0).Format(time.RFC1123),
@@ -899,6 +890,8 @@ func prepareNoCacheMiddleware(next http.Handler) http.Handler {
 		prepareNoCache(rw)
 		next.ServeHTTP(rw, req)
 	})
+}
+
 // getOAuthRedirectURI returns the redirectURL that the upstream OAuth Provider will
 // redirect clients to once authenticated.
 // This is usually the OAuthProxy callback URL.

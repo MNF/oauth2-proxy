@@ -51,6 +51,7 @@ func TestNewOptions(t *testing.T) {
 	expected := errorMsg([]string{
 		"missing setting: cookie-secret",
 		"provider has empty id: ids are required for all providers",
+		"provider missing setting: client-id",
 		"missing setting: client-secret or client-secret-file"})
 	assert.Equal(t, expected, err.Error())
 }

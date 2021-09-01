@@ -2,7 +2,7 @@ package validation
 
 import (
 	"context"
-	"crypto"
+	//"crypto"
 	"crypto/tls"
 	"fmt"
 	"io/ioutil"
@@ -59,18 +59,7 @@ func Validate(o *options.Options) error {
 	if o.ClientID == "" {
 		msgs = append(msgs, "missing setting: client-id")
 	}
-	// login.gov uses a signed JWT to authenticate, not a client-secret
-	if o.ProviderType != "login.gov" {
-		if o.ClientSecret == "" && o.ClientSecretFile == "" {
-			msgs = append(msgs, "missing setting: client-secret or client-secret-file")
-		}
-		if o.ClientSecret == "" && o.ClientSecretFile != "" {
-			_, err := ioutil.ReadFile(o.ClientSecretFile)
-			if err != nil {
-				msgs = append(msgs, "could not read client secret file: "+o.ClientSecretFile)
-			}
-		}
-	}
+
 	if o.AuthenticatedEmailsFile == "" && len(o.EmailDomains) == 0 && o.HtpasswdFile == "" {
 		msgs = append(msgs, "missing setting for email validation: email-domain or authenticated-emails-file required."+
 			"\n      use email-domain=* to authorize all email addresses")
@@ -188,21 +177,8 @@ func Validate(o *options.Options) error {
 
 	msgs = append(msgs, validateUpstreams(o.UpstreamServers)...)
 	msgs = parseProviderInfo(o, msgs)
-
-	if len(o.GoogleGroups) > 0 || o.GoogleAdminEmail != "" || o.GoogleServiceAccountJSON != "" {
-		if len(o.GoogleGroups) < 1 {
-			msgs = append(msgs, "missing setting: google-group")
-		}
-		if o.GoogleAdminEmail == "" {
-			msgs = append(msgs, "missing setting: google-admin-email")
-		}
-		if o.GoogleServiceAccountJSON == "" {
-			msgs = append(msgs, "missing setting: google-service-account-json")
-		}
-	}
-
-	msgs = parseSignatureKey(o, msgs)
-	msgs = configureLogger(o.Logging, msgs)
+	//msgs = parseSignatureKey(o, msgs)
+	//msgs = configureLogger(o.Logging, msgs)
 
 	if o.ReverseProxy {
 		parser, err := ip.GetRealClientIPParser(o.RealClientIPHeader)
@@ -276,19 +252,24 @@ func parseProviderInfo(o *options.Options, msgs []string) []string {
 		p.SetUsers(o.Providers[0].GitHubConfig.Users)
 	case *providers.KeycloakProvider:
 		// Backwards compatibility with `--keycloak-group` option
-		if len(o.KeycloakGroups) > 0 {
-			p.SetAllowedGroups(o.KeycloakGroups)
+		if len(o.Providers[0].KeycloakConfig.Groups) > 0 {
+			p.SetAllowedGroups(o.Providers[0].KeycloakConfig.Groups)
 		}
+	case *providers.KeycloakOIDCProvider:
+		if p.Verifier == nil {
+			msgs = append(msgs, "keycloak-oidc provider requires an oidc issuer URL")
+		}
+		p.AddAllowedRoles(o.Providers[0].KeycloakConfig.Roles)
 	case *providers.GoogleProvider:
-		if o.GoogleServiceAccountJSON != "" {
-			file, err := os.Open(o.GoogleServiceAccountJSON)
+		if o.Providers[0].GoogleConfig.ServiceAccountJSON != "" {
+			file, err := os.Open(o.Providers[0].GoogleConfig.ServiceAccountJSON)
 			if err != nil {
-				msgs = append(msgs, "invalid Google credentials file: "+o.GoogleServiceAccountJSON)
+				msgs = append(msgs, "invalid Google credentials file: "+o.Providers[0].GoogleConfig.ServiceAccountJSON)
 			} else {
-				groups := o.AllowedGroups
+				groups := o.Providers[0].AllowedGroups
 				// Backwards compatibility with `--google-group` option
-				if len(o.GoogleGroups) > 0 {
-					groups = o.GoogleGroups
+				if len(o.Providers[0].GoogleConfig.Groups) > 0 {
+					groups = o.Providers[0].GoogleConfig.Groups
 					p.SetAllowedGroups(groups)
 				}
 				p.SetGroupRestriction(groups, o.Providers[0].GoogleConfig.AdminEmail, file)

@@ -25,6 +25,7 @@ type OIDCProvider struct {
 // NewOIDCProvider initiates a new OIDCProvider
 func NewOIDCProvider(p *ProviderData) *OIDCProvider {
 	p.ProviderName = "OpenID Connect"
+	return &OIDCProvider{
 		ProviderData: p,
 		SkipNonce:    true,
 	}
@@ -50,7 +51,7 @@ func (p *OIDCProvider) Redeem(ctx context.Context, redirectURL, code string) (*s
 	}
 
 	//scopes := strings.Fields(p.Scope)
-	//Kailesh: in the scope for token request put only client id instead of anything else and that returns access_token and id_token both.
+	//Webjet: Kailesh: in the scope for token request put only client id instead of anything else and that returns access_token and id_token both.
 	scopes := make([]string, 1)
 	scopes[0] = p.ClientID
 	c := oauth2.Config{

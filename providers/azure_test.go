@@ -153,7 +153,7 @@ func testAzureBackendWithError(payload string, injectError bool) *httptest.Serve
 				if injectError {
 					w.WriteHeader(400)
 				} else {
-				w.WriteHeader(200)
+					w.WriteHeader(200)
 				}
 				w.Write([]byte(payload))
 			} else if !IsAuthorizedInHeader(r.Header) {

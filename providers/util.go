@@ -1,6 +1,7 @@
 package providers
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -63,10 +64,11 @@ func makeLoginURL(p *ProviderData, redirectURI, state string, extraParams url.Va
 		//params.Set("response_type", "id_token code") // as in old Azure provider
 		params.Set("response_type", "code id_token") //  https://docs.microsoft.com/en-us/azure/active-directory-b2c/openid-connect#send-authentication-requests
 		params.Set("response_mode", "form_post")     // as in old Azure provider
-		nonce, err := encryption.Nonce()
+		nonceBytes, err := encryption.Nonce()
 		if err != nil {
 			logger.Errorf("Error obtaining nonce: %v", err)
 		} else {
+			nonce := base64.RawURLEncoding.EncodeToString(nonceBytes)
 			params.Set("nonce", nonce)
 		}
 	}

@@ -122,7 +122,6 @@ type OIDCClaims struct {
 	Email    string   `json:"-"`
 	Groups   []string `json:"-"`
 	Verified *bool    `json:"email_verified"`
-
 	Nonce    string   `json:"nonce"`
 
 	raw map[string]interface{}

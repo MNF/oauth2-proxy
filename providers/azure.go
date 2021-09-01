@@ -145,13 +145,11 @@ func (p *AzureProvider) Redeem(ctx context.Context, redirectURL, code string) (*
 	session := &sessions.SessionState{
 		AccessToken:  jsonResponse.AccessToken,
 		IDToken:      jsonResponse.IDToken,
-		CreatedAt:    &created,
-		ExpiresOn:    &expires,
 		RefreshToken: jsonResponse.RefreshToken,
 	}
 	session.CreatedAtNow()
 	session.SetExpiresOn(time.Unix(jsonResponse.ExpiresOn, 0))
-	}, nil
+
 	email, err := p.verifyTokenAndExtractEmail(ctx, session.IDToken)
 
 	// https://github.com/oauth2-proxy/oauth2-proxy/pull/914#issuecomment-782285814
@@ -170,13 +168,7 @@ func (p *AzureProvider) Redeem(ctx context.Context, redirectURL, code string) (*
 			session.Email = email
 		} else {
 			logger.Printf("unable to get email claim from access token: %v", err)
-}
-
-// RefreshSessionIfNeeded checks if the session has expired and uses the
-// RefreshToken to fetch a new ID token if required
-func (p *AzureProvider) RefreshSessionIfNeeded(ctx context.Context, s *sessions.SessionState) (bool, error) {
-	if s == nil || s.ExpiresOn.After(time.Now()) || s.RefreshToken == "" {
-		return false, nil
+		}
 	}
 
 	return session, nil
@@ -196,8 +188,21 @@ func (p *AzureProvider) EnrichSession(ctx context.Context, s *sessions.SessionSt
 		return errors.New("unable to get email address")
 	}
 	s.Email = email
+	//checks the listed  Groups configured and adds any  that the user is a member of to session.Groups.
+	p.addGroupsToSession(s)
 
 	return nil
+}
+
+// (p *ProviderData) SetAllowedGroup organizes a group list into the AllowedGroups map  to be consumed by Authorize implementations.
+//It is called from parseProviderInfo(o *options.Options)
+
+func (p *AzureProvider) addGroupsToSession(s *sessions.SessionState) bool {
+	for _, group := range p.ProviderData.AllowedGroups {
+		s.Groups = append(s.Groups, fmt.Sprintf("group:%s", group))
+	}
+
+	return true
 }
 
 func (p *AzureProvider) prepareRedeem(redirectURL, code string) (url.Values, error) {
@@ -269,10 +274,11 @@ func (p *AzureProvider) redeemRefreshToken(ctx context.Context, s *sessions.Sess
 	params.Add("client_secret", clientSecret)
 	params.Add("refresh_token", s.RefreshToken)
 	params.Add("grant_type", "refresh_token")
-	now := time.Now()
+
 	var jsonResponse struct {
 		AccessToken  string `json:"access_token"`
 		RefreshToken string `json:"refresh_token"`
+		ExpiresOn    int64  `json:"expires_on,string"`
 		IDToken      string `json:"id_token"`
 	}
 
@@ -363,47 +369,9 @@ func (p *AzureProvider) getEmailFromProfileAPI(ctx context.Context, accessToken 
 	}
 
 	return getEmailFromJSON(json)
-		logger.Errorf("failed to get email address")
 }
 
 // ValidateSession validates the AccessToken
 func (p *AzureProvider) ValidateSession(ctx context.Context, s *sessions.SessionState) bool {
 	return validateToken(ctx, p, s.AccessToken, makeAzureHeader(s.AccessToken))
-}
-
-func (p *AzureProvider) GetLoginURL(redirectURI, state string) string {
-	extraParams := url.Values{}
-	if p.ProtectedResource != nil && p.ProtectedResource.String() != "" {
-		extraParams.Add("resource", p.ProtectedResource.String())
-	}
-	a := makeLoginURL(p.ProviderData, redirectURI, state, extraParams)
-	return a.String()
-}
-
-// ValidateSession validates the AccessToken
-func (p *AzureProvider) ValidateSession(ctx context.Context, s *sessions.SessionState) bool {
-	return validateToken(ctx, p, s.AccessToken, makeAzureHeader(s.AccessToken))
-}
-
-// EnrichSession checks the listed Google Groups configured and adds any
-// that the user is a member of to session.Groups.
-func (p *AzureProvider) EnrichSession(ctx context.Context, s *sessions.SessionState) error {
-	// Similar `GoogleProvider.groupValidator`.
-	//
-	// This is called here to get the validator to do the `session.Groups`
-	// populating logic.
-	p.addGroupsToSession(s)
-
-	return nil
-}
-
-// (p *ProviderData) SetAllowedGroup organizes a group list into the AllowedGroups map  to be consumed by Authorize implementations.
-//It is called from parseProviderInfo(o *options.Options)
-
-func (p *AzureProvider) addGroupsToSession(s *sessions.SessionState) bool {
-	for _, group := range p.ProviderData.AllowedGroups {
-		s.Groups = append(s.Groups, fmt.Sprintf("group:%s", group))
-	}
-
-	return true
 }
