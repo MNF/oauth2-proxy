@@ -26,7 +26,7 @@ deployment:
     - --redirect-url=https://services.dev.webjet.com.au/oauth2/callback
     - --pass-user-headers=true
     - --standard-logging=true    #needs to enable in prod and fine tune by minimal-log-level
-    - --minimal-log-level=INFO  # for debugging change to TRACE see https://pkg.go.dev/github.com/juju/loggo#Level
+    - --minimal-log-level=TRACE  #normally INFO, for debugging change to TRACE see https://pkg.go.dev/github.com/juju/loggo#Level
     - --auth-logging=false  # for debugging change to true
     - --request-logging=false # for debugging change to true
 secret:

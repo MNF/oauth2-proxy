@@ -12,7 +12,7 @@ jobs:
   build:
     env:
       DEPLOY_DEV_AU: true
-      DEPLOY_DEV_NZ: true
+      DEPLOY_DEV_NZ: false
      # DEPLOY_PROD: false
     runs-on: [webjet, linux]
 

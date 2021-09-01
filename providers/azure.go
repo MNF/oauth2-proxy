@@ -7,7 +7,10 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
+
+	"oauth2_proxy/api"
 
 	"github.com/bitly/go-simplejson"
 	"github.com/oauth2-proxy/oauth2-proxy/v7/pkg/apis/sessions"
@@ -189,21 +192,114 @@ func (p *AzureProvider) EnrichSession(ctx context.Context, s *sessions.SessionSt
 	}
 	s.Email = email
 	//checks the listed  Groups configured and adds any  that the user is a member of to session.Groups.
-	p.addGroupsToSession(s)
+	logger.LogTracef("EnrichSession SessionState Groups: %+v %v", s.Groups, s.IDToken)
+	if s.IDToken != "" {
+		s.Groups, err = p.GetGroups(s, "") //p.FilterGroups
+		if err != nil {
+			return err
+		}
+	}
+	logger.LogTracef("EnrichSession SessionState after GetGroups: %+v", s.Groups)
+
+	//if len(s.Groups) == 0 {	}
+	// //from providers\gitlab.go
+	// for _, group := range userInfo.Groups {
+	// 	s.Groups = append(s.Groups, fmt.Sprintf("group:%s", group))
+	// }
+	// //from providers\google.go
+	// for _, group := range groups {
+	// 	if userInGroup(adminService, group, s.Email) {
+	// 		s.Groups = append(s.Groups, group)
+	// 	}
+	// }
+	// // enrichFromProfileURL enriches a session's Email & Groups via the JSON response of an OIDC profile URL
+	//p.addGroupsToSession(s)
 
 	return nil
 }
 
-// (p *ProviderData) SetAllowedGroup organizes a group list into the AllowedGroups map  to be consumed by Authorize implementations.
-//It is called from parseProviderInfo(o *options.Options)
-
-func (p *AzureProvider) addGroupsToSession(s *sessions.SessionState) bool {
-	for _, group := range p.ProviderData.AllowedGroups {
-		s.Groups = append(s.Groups, fmt.Sprintf("group:%s", group))
+// Get list of groups user belong to. Filter the desired names of groups (in case of huge group set)
+func (p *AzureProvider) GetGroups(s *sessions.SessionState, f string) ([]string, error) {
+	if s.AccessToken == "" {
+		return nil, errors.New("missing access token")
 	}
 
-	return true
+	if s.IDToken == "" {
+		return nil, errors.New("missing id token")
+	}
+
+	// For future use. Right now microsoft graph don't support filter
+	// http://docs.oasis-open.org/odata/odata/v4.0/errata02/os/complete/part2-url-conventions/odata-v4.0-errata02-os-part2-url-conventions-complete.html#_Toc406398116
+
+	/*
+		var request string = "https://graph.microsoft.com/v1.0/me/memberOf?$select=id,displayName,groupTypes,securityEnabled,description,mailEnabled&$top=999"
+		if f != "" {
+			request += "?$filter=contains(displayName, '"+f+"')"
+		}
+	*/
+	//
+	// Filters that will be possible to use:
+	// contains - unknown function | "https://graph.microsoft.com/v1.0/me/memberOf?$filter=contains(displayName,%27groupname%27)"
+	// startswith - not supported  | "https://graph.microsoft.com/v1.0/me/memberOf?$filter=startswith(displayName,%27groupname%27)"
+	// substring - not supported   | "https://graph.microsoft.com/v1.0/me/memberOf?$filter=substring(displayName,0,2)%20eq%20%27groupname%27"
+
+	requestUrl := "https://graph.microsoft.com/v1.0/me/memberOf?$select=displayName"
+
+	groups := make([]string, 0)
+
+	for {
+		req, err := http.NewRequest("GET", requestUrl, nil)
+
+		if err != nil {
+			return nil, err
+		}
+		req.Header = getAzureHeader(s.AccessToken)
+		req.Header.Add("Content-Type", "application/json")
+		logger.LogTracef("GetGroups  req AccessToken: %+v", req)
+
+		groupData, err := api.Request(req)
+		if err != nil {
+			return nil, err
+		}
+		logger.LogTracef("GetGroups  groupData: %+v", groupData)
+
+		for _, groupInfo := range groupData.Get("value").MustArray() {
+			v, ok := groupInfo.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			dname := v["displayName"].(string)
+			if strings.Contains(dname, f) {
+				groups = append(groups, dname)
+			}
+
+		}
+		if nextlink := groupData.Get("@odata.nextLink").MustString(); nextlink != "" {
+			logger.LogTracef("GetGroups  nextlink: %+v", nextlink)
+			requestUrl = nextlink
+		} else {
+			break
+		}
+	}
+	logger.LogTracef("GetGroups  groups: %+v", groups)
+	return groups, nil
+	//return strings.Join(groups, "|"), nil
 }
+func getAzureHeader(access_token string) http.Header {
+	header := make(http.Header)
+	header.Set("Authorization", fmt.Sprintf("Bearer %s", access_token))
+	return header
+}
+
+// (p *ProviderData) SetAllowedGroups (called from pkg\validation\options.parseProviderInfo )organizes a group list into the AllowedGroups map  to be consumed by Authorize implementations.
+//It is called from parseProviderInfo(o *options.Options)
+
+// func (p *AzureProvider) addGroupsToSession(s *sessions.SessionState) bool {
+// 	for _, group := range p.ProviderData.AllowedGroups {
+// 		s.Groups = append(s.Groups, fmt.Sprintf("group:%s", group))
+// 	}
+// 	return true
+// }
 
 func (p *AzureProvider) prepareRedeem(redirectURL, code string) (url.Values, error) {
 	params := url.Values{}

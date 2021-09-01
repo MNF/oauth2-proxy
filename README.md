@@ -22,6 +22,8 @@ or https://www.tutorialspoint.com/execute_python_online.php
 
 5. When prompt, enter email address and password valid for TSA site (e.g. for DEV NZ).
 
+See also pipeline\ManualTests\readMe.md
+
 ## Debug Golang container
 
 Follow instructions in https://github.com/Webjet/land-docs/tree/debug-code-in-container/Debug-code-in-container
