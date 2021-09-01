@@ -17,12 +17,13 @@ to get client_id -see https://portal.azure.com/#blade/Microsoft_AAD_RegisteredAp
 https://community.microfocus.com/cyberres/idm/w/identity_mgr_tips/17052/creating-the-application-client-id-and-client-secret-from-microsoft-azure-new-portal---part-1
 
 To generate a strong cookie secret use python -c 'import os,base64; print(base64.urlsafe_b64encode(os.urandom(16)).decode())' 
-or https://www.tutorialspoint.com/execute_python_online.php
+
+
 5. Run  admin-oauth-pipeline.sh
 
-5. When prompt, enter email address and password valid for TSA site (e.g. for DEV NZ).
+6. When prompt, enter email address and password valid for Webjet Group AAD site.
 
-See also pipeline\ManualTests\readMe.md
+See also [pipeline\ManualTests\readMe.md](https://github.com/Webjet/oauth2_proxy/blob/develop/pipeline/ManualTests/readMe.md)
 
 ## Debug Golang container
 
