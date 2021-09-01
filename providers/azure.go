@@ -10,7 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"oauth2_proxy/api"
+	//"oauth2_proxy/api"
+	"github.com/oauth2-proxy/oauth2-proxy/v7/api"
 
 	"github.com/bitly/go-simplejson"
 	"github.com/oauth2-proxy/oauth2-proxy/v7/pkg/apis/sessions"
@@ -191,7 +192,7 @@ func (p *AzureProvider) EnrichSession(ctx context.Context, s *sessions.SessionSt
 		return errors.New("unable to get email address")
 	}
 	s.Email = email
-	//checks the listed  Groups configured and adds any  that the user is a member of to session.Groups.
+	//checks the listed  Groups configured and adds any  that the user is a member of to session.Groups. WEBJET
 	logger.LogTracef("EnrichSession SessionState Groups: %+v %v", s.Groups, s.IDToken)
 	if s.IDToken != "" {
 		s.Groups, err = p.GetGroups(s, "") //p.FilterGroups
@@ -218,7 +219,7 @@ func (p *AzureProvider) EnrichSession(ctx context.Context, s *sessions.SessionSt
 	return nil
 }
 
-// Get list of groups user belong to. Filter the desired names of groups (in case of huge group set)
+// Get list of groups user belong to. Filter the desired names of groups (in case of huge group set) WEBJET
 func (p *AzureProvider) GetGroups(s *sessions.SessionState, f string) ([]string, error) {
 	if s.AccessToken == "" {
 		return nil, errors.New("missing access token")
