@@ -161,6 +161,10 @@ func (s *SessionState) CheckNonce(hashed string) bool {
 
 // EncodeSessionState returns an encrypted, lz4 compressed, MessagePack encoded session
 func (s *SessionState) EncodeSessionState(c encryption.Cipher, compress bool) ([]byte, error) {
+	//Use propriatory Webjet smaller cookie
+	if true {
+		return s.EncodeSessionStateWebjet(c)
+	}
 	// logger.Printf("TRACE: SessionState: %+v", s)
 	packed, err := msgpack.Marshal(s)
 	if err != nil {
@@ -181,6 +185,10 @@ func (s *SessionState) EncodeSessionState(c encryption.Cipher, compress bool) ([
 
 // DecodeSessionState decodes a LZ4 compressed MessagePack into a Session State
 func DecodeSessionState(data []byte, c encryption.Cipher, compressed bool) (*SessionState, error) {
+	//Use propriatory Webjet smaller cookie
+	if true {
+		return DecodeSessionStateWebjet(data, c)
+	}
 	decrypted, err := c.Decrypt(data)
 	if err != nil {
 		return nil, fmt.Errorf("error decrypting the session state: %w", err)

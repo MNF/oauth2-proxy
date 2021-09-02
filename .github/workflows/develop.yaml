@@ -2,7 +2,7 @@ name: Dev Deployment
 
 on:
   push:
-    branches: [develop,postReview14663] 
+    branches: [develop,postReview14663,smallCookie14663] 
 
 env:
   NAMESPACE: oauth
