@@ -102,6 +102,7 @@ func (s *SessionStore) setSessionCookie(rw http.ResponseWriter, req *http.Reques
 	if err != nil {
 		return err
 	}
+	logger.LogTracef("TRACE: setSessionCookie cookies: %+v", cookies)
 	for _, c := range cookies {
 		http.SetCookie(rw, c)
 	}
