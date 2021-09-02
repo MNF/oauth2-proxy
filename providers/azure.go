@@ -202,17 +202,6 @@ func (p *AzureProvider) EnrichSession(ctx context.Context, s *sessions.SessionSt
 	}
 	logger.LogTracef("EnrichSession SessionState after GetGroups: %+v", s.Groups)
 
-	//if len(s.Groups) == 0 {	}
-	// //from providers\gitlab.go
-	// for _, group := range userInfo.Groups {
-	// 	s.Groups = append(s.Groups, fmt.Sprintf("group:%s", group))
-	// }
-	// //from providers\google.go
-	// for _, group := range groups {
-	// 	if userInGroup(adminService, group, s.Email) {
-	// 		s.Groups = append(s.Groups, group)
-	// 	}
-	// }
 	// // enrichFromProfileURL enriches a session's Email & Groups via the JSON response of an OIDC profile URL
 	//p.addGroupsToSession(s)
 

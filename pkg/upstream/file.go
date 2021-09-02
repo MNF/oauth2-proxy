@@ -43,6 +43,6 @@ func (u *fileServer) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	// If scope is nil, this will panic.
 	// A scope should always be injected before this handler is called.
 	scope.Upstream = u.upstream
-	rw.Header().Set("GAP-Upstream-Address", u.upstream)
+
 	u.handler.ServeHTTP(rw, req)
 }

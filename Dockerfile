@@ -27,7 +27,7 @@ COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certifi
 COPY --from=builder /go/src/github.com/oauth2-proxy/oauth2-proxy/oauth2-proxy /bin/oauth2-proxy
 COPY --from=builder /go/src/github.com/oauth2-proxy/oauth2-proxy/jwt_signing_key.pem /etc/ssl/private/jwt_signing_key.pem
 
-#for local tests (TODO: parameterise if will cause problems on dev/prod deployments)
+#for local tests copy oauth2_proxy.cfg  (Seems doesn't cause problems on dev/prod deployments)
 RUN mkdir /etc/config/
 COPY pipeline/oauth2_proxy.local.cfg /etc/config/oauth2_proxy.cfg 
 RUN ls -l /etc/config/

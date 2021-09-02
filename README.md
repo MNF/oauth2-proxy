@@ -16,8 +16,7 @@ Generate a unique `client_secret` to encrypt the cookie.
 to get client_id -see https://portal.azure.com/#blade/Microsoft_AAD_RegisteredApps/ApplicationMenuBlade/Overview/appId/2d9e4170-c131-46eb-bbb8-321442f55b73/isMSAApp/ 
 https://community.microfocus.com/cyberres/idm/w/identity_mgr_tips/17052/creating-the-application-client-id-and-client-secret-from-microsoft-azure-new-portal---part-1
 
-To generate a strong cookie secret use python -c 'import os,base64; print(base64.urlsafe_b64encode(os.urandom(16)).decode())' 
-
+To generate a strong cookie secret see https://github.com/oauth2-proxy/oauth2-proxy/blob/master/docs/versioned_docs/version-7.0.x/configuration/overview.md#generating-a-cookie-secret
 
 5. Run  admin-oauth-pipeline.sh
 

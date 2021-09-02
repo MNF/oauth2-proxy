@@ -108,7 +108,6 @@ var _ = Describe("HTTP Upstream Suite", func() {
 			expectedResponse: testHTTPResponse{
 				code: 200,
 				header: map[string][]string{
-					gapUpstream: {"default"},
 					contentType: {applicationJSON},
 				},
 				request: testHTTPRequest{
@@ -132,7 +131,6 @@ var _ = Describe("HTTP Upstream Suite", func() {
 			expectedResponse: testHTTPResponse{
 				code: 200,
 				header: map[string][]string{
-					gapUpstream: {"encodedSlashes"},
 					contentType: {applicationJSON},
 				},
 				request: testHTTPRequest{
@@ -179,7 +177,6 @@ var _ = Describe("HTTP Upstream Suite", func() {
 			expectedResponse: testHTTPResponse{
 				code: 200,
 				header: map[string][]string{
-					gapUpstream: {"requestWithBody"},
 					contentType: {applicationJSON},
 				},
 				request: testHTTPRequest{
@@ -242,7 +239,6 @@ var _ = Describe("HTTP Upstream Suite", func() {
 				code: 200,
 				header: map[string][]string{
 					contentType: {applicationJSON},
-					gapUpstream: {"withSignature"},
 				},
 				request: testHTTPRequest{
 					Method: "GET",
@@ -272,7 +268,6 @@ var _ = Describe("HTTP Upstream Suite", func() {
 			expectedResponse: testHTTPResponse{
 				code: 200,
 				header: map[string][]string{
-					gapUpstream: {"existingHeaders"},
 					contentType: {applicationJSON},
 				},
 				request: testHTTPRequest{
@@ -448,7 +443,7 @@ var _ = Describe("HTTP Upstream Suite", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			handler := newHTTPUpstreamProxy(upstream, u, nil, nil)
-			proxyServer = httptest.NewServer(handler)
+
 			proxyServer = httptest.NewServer(middleware.NewScope(false, "X-Request-Id")(handler))
 		})
 
@@ -480,7 +475,6 @@ var _ = Describe("HTTP Upstream Suite", func() {
 			response, err := http.Get(fmt.Sprintf("http://%s", proxyServer.Listener.Addr().String()))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(response.StatusCode).To(Equal(200))
-			Expect(response.Header.Get(gapUpstream)).To(Equal("websocketProxy"))
 		})
 	})
 })

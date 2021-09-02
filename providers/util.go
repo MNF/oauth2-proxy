@@ -54,7 +54,7 @@ func makeLoginURL(p *ProviderData, redirectURI, state string, extraParams url.Va
 	}
 	params.Add("scope", p.Scope)
 	params.Set("client_id", p.ClientID)
-	authorisationCodeFlow := true //TODO:review if it is working for Webjet Admin OAuthProxy2
+	authorisationCodeFlow := true //Created for Webjet B2C, seems working in Webjet Admin OAuth-Proxy2
 	if authorisationCodeFlow {
 		params.Set("response_type", "code")
 		//from https://docs.microsoft.com/en-us/azure/active-directory-b2c/authorization-code-flow#1-get-an-authorization-code

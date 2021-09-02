@@ -177,8 +177,6 @@ func Validate(o *options.Options) error {
 
 	msgs = append(msgs, validateUpstreams(o.UpstreamServers)...)
 	msgs = parseProviderInfo(o, msgs)
-	//msgs = parseSignatureKey(o, msgs)
-	//msgs = configureLogger(o.Logging, msgs)
 
 	if o.ReverseProxy {
 		parser, err := ip.GetRealClientIPParser(o.RealClientIPHeader)

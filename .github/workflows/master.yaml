@@ -13,7 +13,8 @@ jobs:
   build:
     env:
       DEPLOY_DEV: true
-      DEPLOY_PROD: true
+      DEPLOY_PROD_AU: true
+      DEPLOY_PROD_NZ: true
       DEPLOY_Teamcity: false
       DEPLOY_Tableau: false
     runs-on: [webjet, linux]
@@ -51,7 +52,7 @@ jobs:
            manifest: 'pipeline/dev-wjnz.yaml'
 
       - name: Deploy PROD WJAU
-        if: ( github.event_name != 'workflow_dispatch' && env.DEPLOY_PROD != 'false'  ) || ( github.event_name == 'workflow_dispatch' && github.event.inputs.deployToProd == 'true' )
+        if: ( github.event_name != 'workflow_dispatch' && env.DEPLOY_PROD_AU != 'false'  ) || ( github.event_name == 'workflow_dispatch' && github.event.inputs.deployToProd == 'true' )
         uses: webjet/action-kubebot-deploy@v1
         with:
            environment: 'prod'
@@ -59,7 +60,7 @@ jobs:
            manifest: 'pipeline/prod-wjau.yaml'
 
       - name: Deploy PROD WJNZ
-        if: ( github.event_name != 'workflow_dispatch' && env.DEPLOY_PROD != 'false'  ) || ( github.event_name == 'workflow_dispatch' && github.event.inputs.deployToProd == 'true' )
+        if: ( github.event_name != 'workflow_dispatch' && env.DEPLOY_PROD_NZ != 'false'  ) || ( github.event_name == 'workflow_dispatch' && github.event.inputs.deployToProd == 'true' )
         uses: webjet/action-kubebot-deploy@v1
         with:
            environment: 'prod'

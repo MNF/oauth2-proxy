@@ -67,7 +67,7 @@ var _ = Describe("Error Page Writer", func() {
 					"with more context.",
 				},
 			})
-			errorPage.WriteErrorPage(recorder, 403, "/redirect", "Access Denied", "An extra message: %s", "with more context.")
+
 			body, err := ioutil.ReadAll(recorder.Result().Body)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(string(body)).To(Equal("Forbidden An extra message: with more context. /prefix/ 403 /redirect 11111111-2222-4333-8444-555555555555 Custom Footer Text v0.0.0-test"))

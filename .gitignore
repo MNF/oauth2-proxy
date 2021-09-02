@@ -31,10 +31,6 @@ _cgo_export.*
 
 _testmain.go
 
-#*.exe
-#dist
-#.godeps
-
 # Editor swap/temp files
 .*.swp
 

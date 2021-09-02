@@ -2,7 +2,7 @@ name: Dev Deployment
 
 on:
   push:
-    branches: [develop,oauthV7] 
+    branches: [develop,postReview14663] 
 
 env:
   NAMESPACE: oauth
@@ -12,7 +12,7 @@ jobs:
   build:
     env:
       DEPLOY_DEV_AU: true
-      DEPLOY_DEV_NZ: false
+      DEPLOY_DEV_NZ: true
      # DEPLOY_PROD: false
     runs-on: [webjet, linux]
 
