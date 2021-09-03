@@ -7,9 +7,12 @@ import (
 	"time"
 
 	"github.com/oauth2-proxy/oauth2-proxy/v7/pkg/encryption"
+	//"github.com/oauth2-proxy/oauth2-proxy/v7/pkg/logger"
+	//sessionsapi "github.com/oauth2-proxy/oauth2-proxy/v7/pkg/apis/sessions"
 	"github.com/vmihailenco/msgpack/v4"
 )
 
+//The standard big cookie implementation is implemented in "main" pkg\apis\sessions\session_state.go file
 //Old Webjet implementation of reduced  cookies s.userOrEmail(), s.AccessToken, s.ExpiresOn.Unix(), s.RefreshToken, s.Groups)
 func (s *SessionState) EncodeSessionStateWebjet(c encryption.Cipher) ([]byte, error) {
 	if c == nil || s.AccessToken == "" {
@@ -32,7 +35,7 @@ func (s *SessionState) EncryptedString(c encryption.Cipher) ([]byte, error) {
 	if c == nil {
 		panic("error. missing cipher")
 	}
-
+	logger.Printf("TRACE: SessionState: %+v", s)
 	//content := fmt.Sprintf("%s:%s:%d:%s:%s", s.userOrEmail(), s.AccessToken, s.ExpiresOn.Unix(), s.RefreshToken, s.Groups)
 	csvGroups := strings.Join(s.Groups[:], ",")
 	content := fmt.Sprintf("%s:%s:%d:%s:%s", s.userOrEmail(), "", s.ExpiresOn.Unix(), "", csvGroups)

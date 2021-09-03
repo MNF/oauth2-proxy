@@ -3,18 +3,23 @@ package sessions
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/oauth2-proxy/oauth2-proxy/v7/pkg/clock"
 	"github.com/oauth2-proxy/oauth2-proxy/v7/pkg/encryption"
+	"github.com/oauth2-proxy/oauth2-proxy/v7/pkg/logger"
 	"github.com/pierrec/lz4"
 	"github.com/vmihailenco/msgpack/v4"
 )
 
 // SessionState is used to store information about the currently authenticated user session
+//Webjet propriatory cookie are implemented in "partial" pkg\apis\sessions\session_state_Webjet.go file
 type SessionState struct {
 	CreatedAt *time.Time `msgpack:"ca,omitempty"`
 	ExpiresOn *time.Time `msgpack:"eo,omitempty"`
@@ -261,3 +266,124 @@ func lz4Decompress(compressed []byte) ([]byte, error) {
 
 	return payload, nil
 }
+
+//The standard big cookie implementation is implemented in "main" pkg\apis\sessions\session_state.go file
+//Old Webjet implementation of reduced  cookies s.userOrEmail(), s.AccessToken, s.ExpiresOn.Unix(), s.RefreshToken, s.Groups)
+func (s *SessionState) EncodeSessionStateWebjet(c encryption.Cipher) ([]byte, error) {
+	if c == nil || s.AccessToken == "" {
+		return packAndEncrypt(s.userOrEmail(), c)
+		//return s.userOrEmail(), nil
+	}
+	return s.encryptedString(c)
+}
+
+func (s *SessionState) userOrEmail() string {
+	u := s.User
+	if s.Email != "" {
+		u = s.Email
+	}
+	return u
+}
+
+func (s *SessionState) encryptedString(c encryption.Cipher) ([]byte, error) {
+	//var err error
+	if c == nil {
+		panic("error. missing cipher")
+	}
+	logger.Printf("TRACE: encryptedString SessionState: %+v", s)
+	//content := fmt.Sprintf("%s:%s:%d:%s:%s", s.userOrEmail(), s.AccessToken, s.ExpiresOn.Unix(), s.RefreshToken, s.Groups)
+	csvGroups := strings.Join(s.Groups[:], ",")
+	logger.Printf("TRACE: encryptedString csvGroups: %v", csvGroups)
+	content := fmt.Sprintf("%s:%s:%d:%s:%s", s.userOrEmail(), "", s.ExpiresOn.Unix(), "", csvGroups)
+	logger.Printf("TRACE: encryptedString content: %v", content)
+	return packAndEncrypt(content, c)
+}
+func packAndEncrypt(content string, c encryption.Cipher) ([]byte, error) {
+	contentBytes, err := base64.URLEncoding.DecodeString(content)
+	if err != nil {
+		return nil, fmt.Errorf("error DecodeString:  %w %v", err, content)
+	}
+	return c.Encrypt(contentBytes)
+	//return c.encryptString(content)
+}
+func DecodeSessionStateWebjet(data []byte, c encryption.Cipher) (s *SessionState, err error) {
+	if c == nil {
+		panic("error. missing cipher")
+	}
+	//dataString:=base64.URLEncoding.EncodeToString(data)
+	vBytes, err := c.Decrypt(data)
+	if err != nil {
+		return nil, fmt.Errorf("error decrypting the session state: %w", err)
+	}
+	v := string(vBytes[:])
+	chunks := strings.Split(v, ":")
+	if len(chunks) == 1 {
+		if strings.Contains(chunks[0], "@") {
+			u := strings.Split(v, "@")[0]
+			return &SessionState{Email: v, User: u}, nil
+		}
+		return &SessionState{User: v}, nil
+	}
+
+	if len(chunks) != 5 {
+		err = fmt.Errorf("invalid number of fields (got %d expected 5)", len(chunks))
+		return
+	}
+
+	s = &SessionState{}
+	s.AccessToken = chunks[1]
+	s.RefreshToken = chunks[3]
+	if u := chunks[0]; strings.Contains(u, "@") {
+		s.Email = u
+		s.User = strings.Split(u, "@")[0]
+	} else {
+		s.User = u
+	}
+	if chunks[4] != "" {
+		s.Groups = strings.Split(chunks[4], ",") //chunks[4]
+	}
+	ts, _ := strconv.Atoi(chunks[2])
+	s.SetExpiresOn(time.Unix(int64(ts), 0)) // s.ExpiresOn = (time.Unix(int64(ts), 0)
+	return
+}
+
+// Encrypt a value for use in a cookie
+//From oauth2_proxy_Old\cookie\cookies.go  (c *Cipher) Encrypt
+/*
+func (c *encryption.Cipher) encryptString(value string) (string, error) {
+	ciphertext := make([]byte, aes.BlockSize+len(value))
+
+	iv := ciphertext[:aes.BlockSize]
+	if _, err := io.ReadFull(rand.Reader, iv); err != nil {
+		return "", fmt.Errorf("failed to create initialization vector %s", err)
+	}
+
+	stream := cipher.NewCFBEncrypter(c.Block, iv)
+	stream.XORKeyStream(ciphertext[aes.BlockSize:], []byte(value))
+	return base64.StdEncoding.EncodeToString(ciphertext), nil
+}
+*/
+
+// Decrypt a value from a cookie to it's original string
+//from cookie\cookies.go func (c *Cipher) Decrypt(s string) (string, error) {
+// func (c *encryption.Cipher) DecryptBytes(value []byte) (string, error) {
+// 	// s string
+// 	// encrypted, err := base64.StdEncoding.DecodeString(s)
+// 	// if err != nil {
+// 	// 	return "", fmt.Errorf("failed to decrypt cookie value %s", err)
+// 	// }
+// 	encrypted:=value;
+
+// 	if len(encrypted) < aes.BlockSize {
+// 		return "", fmt.Errorf("encrypted cookie value should be "+
+// 			"at least %d bytes, but is only %d bytes",
+// 			aes.BlockSize, len(encrypted))
+// 	}
+
+// 	iv := encrypted[:aes.BlockSize]
+// 	encrypted = encrypted[aes.BlockSize:]
+// 	stream := cipher.NewCFBDecrypter(c.Block, iv)
+// 	stream.XORKeyStream(encrypted, encrypted)
+
+// 	return string(encrypted), nil
+// }
