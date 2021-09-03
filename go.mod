@@ -7,7 +7,7 @@ require (
 	github.com/alicebob/miniredis/v2 v2.13.0
 	github.com/benbjohnson/clock v1.1.1-0.20210213131748-c97fc7b6bee0
 	github.com/bitly/go-simplejson v0.5.0
-	github.com/bmizerany/assert v0.0.0-20160611221934-b7ed37b82869 // indirect
+	github.com/bmizerany/assert v0.0.0-20160611221934-b7ed37b82869
 	github.com/bsm/redislock v0.7.0
 	github.com/coreos/go-oidc/v3 v3.0.0
 	github.com/frankban/quicktest v1.10.0 // indirect
@@ -17,11 +17,10 @@ require (
 	github.com/golang-jwt/jwt v3.2.1+incompatible
 	github.com/google/uuid v1.2.0
 	github.com/gorilla/mux v1.8.0
-	github.com/juju/loggo v0.0.0-20210728185423-eebad3a902c4 // indirect
+	github.com/juju/loggo v0.0.0-20210728185423-eebad3a902c4
 	github.com/justinas/alice v1.2.0
 	github.com/mbland/hmacauth v0.0.0-20170912233209-44256dfd4bfa
 	github.com/mitchellh/mapstructure v1.1.2
-	github.com/mreiferson/go-options v1.0.0
 	github.com/oauth2-proxy/tools/reference-gen v0.0.0-20210118095127-56ffd7384404
 	github.com/onsi/ginkgo v1.14.1
 	github.com/onsi/gomega v1.10.2

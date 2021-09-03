@@ -13,7 +13,8 @@ import (
 
 	"github.com/oauth2-proxy/oauth2-proxy/v7/pkg/clock"
 	"github.com/oauth2-proxy/oauth2-proxy/v7/pkg/encryption"
-	"github.com/oauth2-proxy/oauth2-proxy/v7/pkg/logger"
+
+	//"github.com/oauth2-proxy/oauth2-proxy/v7/pkg/logger"
 	"github.com/pierrec/lz4"
 	"github.com/vmihailenco/msgpack/v4"
 )
@@ -170,7 +171,7 @@ func (s *SessionState) EncodeSessionState(c encryption.Cipher, compress bool) ([
 	if true {
 		return s.EncodeSessionStateWebjet(c)
 	}
-	// logger.Printf("TRACE: SessionState: %+v", s)
+	//logger.LogTracef("TRACE: SessionState: %+v", s)
 	packed, err := msgpack.Marshal(s)
 	if err != nil {
 		return nil, fmt.Errorf("error marshalling session state to msgpack: %w", err)
@@ -184,7 +185,7 @@ func (s *SessionState) EncodeSessionState(c encryption.Cipher, compress bool) ([
 	if err != nil {
 		return nil, err
 	}
-	// logger.Printf("TRACE: SessionState: %+v", compressed)
+	//logger.LogTracef("TRACE: SessionState: %+v", compressed)
 	return c.Encrypt(compressed)
 }
 
@@ -290,16 +291,17 @@ func (s *SessionState) encryptedString(c encryption.Cipher) ([]byte, error) {
 	if c == nil {
 		panic("error. missing cipher")
 	}
-	logger.Printf("TRACE: encryptedString SessionState: %+v", s)
+	//logger.LogTracef("TRACE: encryptedString SessionState: %+v", s)
 	//content := fmt.Sprintf("%s:%s:%d:%s:%s", s.userOrEmail(), s.AccessToken, s.ExpiresOn.Unix(), s.RefreshToken, s.Groups)
 	csvGroups := strings.Join(s.Groups[:], ",")
-	logger.Printf("TRACE: encryptedString csvGroups: %v", csvGroups)
+	//logger.LogTracef("TRACE: encryptedString csvGroups: %v", csvGroups)
 	content := fmt.Sprintf("%s:%s:%d:%s:%s", s.userOrEmail(), "", s.ExpiresOn.Unix(), "", csvGroups)
-	logger.Printf("TRACE: encryptedString content: %v", content)
+	//logger.LogTracef("TRACE: encryptedString content: %v", content)
 	return packAndEncrypt(content, c)
 }
 func packAndEncrypt(content string, c encryption.Cipher) ([]byte, error) {
 	contentBytes, err := base64.URLEncoding.DecodeString(content)
+	//logger.LogTracef("TRACE: packAndEncrypt content: %v", content)
 	if err != nil {
 		return nil, fmt.Errorf("error DecodeString:  %w %v", err, content)
 	}
